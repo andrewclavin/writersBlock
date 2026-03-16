@@ -40,3 +40,6 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Gutenberg source texts (do not commit raw book files)
+books/books-src/
