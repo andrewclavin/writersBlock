@@ -1,0 +1,9 @@
+{
+  "description": "Files/patterns that must never be committed (copyrighted/local-only).",
+  "deny": [
+    "writers-block/books/books-src/old-man-and-the-sea.txt",
+    "writers-block/books/books-src/old-man-and-the-sea*.txt",
+    "writers-block/books/old-man-and-the-sea/**"
+  ]
+}
+

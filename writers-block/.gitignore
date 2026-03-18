@@ -41,5 +41,14 @@ app-example
 /ios
 /android
 
-# Gutenberg source texts (do not commit raw book files)
-books/books-src/
+# Gutenberg source texts (commit public-domain texts)
+#
+# NOTE: We DO commit `books/books-src/*.txt` for public-domain books.
+# We keep specific copyrighted texts local-only via the ignores below.
+
+# Local-only copyrighted raw texts (never commit/sync)
+books/books-src/old-man-and-the-sea.txt
+books/books-src/old-man-and-the-sea*.txt
+
+# Local-only copyrighted derived outputs (never commit/sync)
+books/old-man-and-the-sea/
