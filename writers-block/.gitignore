@@ -55,3 +55,7 @@ books/old-man-and-the-sea/
 
 # Local-only copyrighted book config (never commit/sync)
 src/config/old-man-and-the-sea.config.js
+
+# Web-only prepared book assets (generated/copy from `books/`).
+# These are fetched + cached at runtime for offline use.
+public/books/

@@ -11,10 +11,12 @@
     "lint": "expo lint",
     "parse:books": "node ./scripts/parse-books.js",
     "check:local-only": "node ../scripts/check-local-only-staged.js",
-    "postinstall": "node ../scripts/install-git-hooks.js"
+    "prepare:web-books": "node ./scripts/prepare-web-books.js",
+    "postinstall": "node ../scripts/install-git-hooks.js && npm run prepare:web-books -- --bookId age-of-innocence --bookId great-gatsby"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
+    "@react-native-async-storage/async-storage": "^3.0.1",
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
@@ -40,7 +42,8 @@
     "react-native-screens": "~4.16.0",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.5.1",
-    "react-redux": "^9.2.0"
+    "react-redux": "^9.2.0",
+    "redux-persist": "^6.0.0"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",

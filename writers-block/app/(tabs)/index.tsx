@@ -1,5 +1,6 @@
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, Pressable, StyleSheet } from 'react-native';
+import { useDispatch, useSelector } from 'react-redux';
 
 import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -7,7 +8,13 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Link } from 'expo-router';
 
+import { setLastBookId } from '../../src/state/session/sessionSlice';
+import type { AppDispatch, RootState } from '../../src/state/store';
+
 export default function HomeScreen() {
+  const dispatch = useDispatch<AppDispatch>();
+  const lastBookId = useSelector((state: RootState) => state.session.lastBookId);
+
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
@@ -74,6 +81,23 @@ export default function HomeScreen() {
           <ThemedText type="defaultSemiBold">app-example</ThemedText>.
         </ThemedText>
       </ThemedView>
+
+      <ThemedView style={styles.stepContainer}>
+        <ThemedText type="subtitle">POC Boot Debug</ThemedText>
+        <ThemedText>{`Last saved bookId: ${lastBookId ?? '(none yet)'}`}</ThemedText>
+        <ThemedView style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+          <Pressable
+            onPress={() => dispatch(setLastBookId('age-of-innocence'))}
+            style={styles.pocButton}>
+            <ThemedText>Save Age of Innocence</ThemedText>
+          </Pressable>
+          <Pressable
+            onPress={() => dispatch(setLastBookId('great-gatsby'))}
+            style={styles.pocButton}>
+            <ThemedText>Save Gatsby</ThemedText>
+          </Pressable>
+        </ThemedView>
+      </ThemedView>
     </ParallaxScrollView>
   );
 }
@@ -87,6 +111,14 @@ const styles = StyleSheet.create({
   stepContainer: {
     gap: 8,
     marginBottom: 8,
+  },
+  pocButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0,0,0,0.15)',
   },
   reactLogo: {
     height: 178,
