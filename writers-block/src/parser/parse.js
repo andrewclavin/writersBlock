@@ -17,7 +17,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 const fs = require("fs");
 const path = require("path");
-const gatsbyConfig = require("../config/gatsby.config.js");
+const { getBookConfig } = require("../config/bookConfigs");
 const { defaultGameConfig } = require("../config/gameConfig");
 
 /**
@@ -49,17 +49,17 @@ const { defaultGameConfig } = require("../config/gameConfig");
  * @property {number | null} discoveredAt
  */
 
-function loadRawText(inputPath) {
+function loadRawText(inputPath, bookConfig) {
   const raw = fs.readFileSync(inputPath, "utf8");
-  const startIdx = raw.indexOf(gatsbyConfig.gutenbergStart);
-  const endIdx = raw.indexOf(gatsbyConfig.gutenbergEnd);
+  const startIdx = raw.indexOf(bookConfig.gutenbergStart);
+  const endIdx = raw.indexOf(bookConfig.gutenbergEnd);
 
   if (startIdx === -1 || endIdx === -1 || endIdx <= startIdx) {
     return raw;
   }
 
   // Slice between markers; this is deliberately rough.
-  const sliced = raw.slice(startIdx + gatsbyConfig.gutenbergStart.length, endIdx);
+  const sliced = raw.slice(startIdx + bookConfig.gutenbergStart.length, endIdx);
   return sliced;
 }
 
@@ -161,19 +161,60 @@ function buildLexicon(words) {
   return Array.from(map.values());
 }
 
+function parseArgs(argv) {
+  const args = {
+    bookId: null,
+    inputPath: null,
+    outputDir: null,
+  };
+
+  const positionals = [];
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i];
+    if (a === "--bookId" || a === "--book" || a === "-b") {
+      args.bookId = argv[i + 1] || null;
+      i += 1;
+      continue;
+    }
+    positionals.push(a);
+  }
+
+  args.inputPath = positionals[0] || null;
+  args.outputDir = positionals[1] || null;
+  return args;
+}
+
+function inferBookId({ bookId, inputPath, outputDir }) {
+  if (bookId) return bookId;
+  if (outputDir) return path.basename(outputDir);
+  if (inputPath) return path.basename(inputPath).replace(/\.txt$/i, "");
+  return null;
+}
+
 function main() {
-  const [inputPath, outputDir] = process.argv.slice(2);
+  const { bookId, inputPath, outputDir } = parseArgs(process.argv.slice(2));
   if (!inputPath || !outputDir) {
-    console.error("Usage: node src/parser/parse.js <input.txt> <outputDir>");
+    console.error(
+      "Usage: node src/parser/parse.js [--bookId <book-id>] <input.txt> <outputDir>"
+    );
     process.exit(1);
   }
 
-  const raw = loadRawText(inputPath);
+  const resolvedBookId = inferBookId({ bookId, inputPath, outputDir });
+  const bookConfig = getBookConfig(resolvedBookId);
+
+  if (!bookConfig) {
+    console.error(`Unknown bookId "${resolvedBookId}".`);
+    console.error("Add it to src/config/bookConfigs.js or pass a valid --bookId.");
+    process.exit(1);
+  }
+
+  const raw = loadRawText(inputPath, bookConfig);
   const words = parseToWords(raw);
   const lexicon = buildLexicon(words);
 
-  const outWordsPath = path.join(outputDir, `${gatsbyConfig.bookId}.words.json`);
-  const outLexiconPath = path.join(outputDir, `${gatsbyConfig.bookId}.lexicon.json`);
+  const outWordsPath = path.join(outputDir, `${bookConfig.bookId}.words.json`);
+  const outLexiconPath = path.join(outputDir, `${bookConfig.bookId}.lexicon.json`);
 
   fs.mkdirSync(outputDir, { recursive: true });
   fs.writeFileSync(outWordsPath, JSON.stringify(words, null, 2), "utf8");

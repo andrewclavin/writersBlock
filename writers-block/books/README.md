@@ -24,6 +24,12 @@ Example parser usage (from the `writers-block` app directory):
 node src/parser/parse.js books/books-src/great-gatsby.txt books/great-gatsby
 ```
 
+You can also pass the book id explicitly:
+
+```bash
+node src/parser/parse.js --bookId age-of-innocence books/books-src/age-of-innocence.txt books/age-of-innocence
+```
+
 ## Safety check (pre-commit)
 
 This repo installs a pre-commit hook on `npm install` that blocks committing any paths matching `local-only.json`.

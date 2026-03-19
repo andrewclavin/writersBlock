@@ -3,7 +3,8 @@
   "deny": [
     "writers-block/books/books-src/old-man-and-the-sea.txt",
     "writers-block/books/books-src/old-man-and-the-sea*.txt",
-    "writers-block/books/old-man-and-the-sea/**"
+    "writers-block/books/old-man-and-the-sea/**",
+    "writers-block/src/config/old-man-and-the-sea.config.js"
   ]
 }
 

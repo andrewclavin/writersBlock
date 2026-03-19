@@ -9,6 +9,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "parse:books": "node ./scripts/parse-books.js",
     "check:local-only": "node ../scripts/check-local-only-staged.js",
     "postinstall": "node ../scripts/install-git-hooks.js"
   },

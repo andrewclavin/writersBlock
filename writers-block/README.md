@@ -4,6 +4,25 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
 ## Get started
 
+## Node setup (recommended)
+
+We recommend using a Node version manager so everyone runs the same major version.
+
+- Preferred: `fnm` (Fast Node Manager) + Node LTS
+- This repo uses `.nvmrc` at the repo root to record the intended Node version.
+
+Example (macOS with Homebrew):
+
+```bash
+brew install fnm
+echo 'eval "$(fnm env --use-on-cd --shell zsh)"' >> ~/.zshrc
+source ~/.zshrc
+
+cd ..
+fnm install --lts
+fnm use
+```
+
 1. Install dependencies
 
    ```bash
