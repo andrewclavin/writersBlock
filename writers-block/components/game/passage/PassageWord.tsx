@@ -1,20 +1,39 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GameChrome } from '@/constants/gameChrome';
 
 type PassageWordProps = {
   word: string;
+  slotIndex: number;
   isPlaced: boolean;
-  isCurrent: boolean;
+  /** Active slot: keyboard + placement target; any slot, including already placed. */
+  isSelected: boolean;
+  onSelectSlot: (index: number) => void;
 };
 
-export function PassageWord({ word, isPlaced, isCurrent }: PassageWordProps) {
+export function PassageWord({
+  word,
+  slotIndex,
+  isPlaced,
+  isSelected,
+  onSelectSlot,
+}: PassageWordProps) {
+  const ringStyle = isSelected ? styles.slotSelected : null;
+
   return (
     <View style={styles.wrap}>
-      <View style={[styles.slot, isCurrent && !isPlaced && styles.slotActive]}>
-        {!isPlaced && <View style={styles.pill} />}
-        <Text style={[styles.word, !isPlaced && styles.wordConcealed]}>{word}</Text>
-      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Word ${slotIndex + 1}`}
+        accessibilityState={{ selected: isSelected }}
+        hitSlop={4}
+        onPress={() => onSelectSlot(slotIndex)}
+        style={({ pressed }) => [styles.pressable, pressed && styles.pressablePressed]}>
+        <View style={[styles.slot, ringStyle]}>
+          {!isPlaced && <View style={styles.pill} />}
+          <Text style={[styles.word, !isPlaced && styles.wordConcealed]}>{word}</Text>
+        </View>
+      </Pressable>
     </View>
   );
 }
@@ -25,12 +44,18 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     marginRight: 6,
   },
+  pressable: {
+    borderRadius: 3,
+  },
+  pressablePressed: {
+    opacity: 0.85,
+  },
   slot: {
     position: 'relative',
     borderRadius: 3,
     overflow: 'hidden',
   },
-  slotActive: {
+  slotSelected: {
     borderWidth: 2,
     borderColor: GameChrome.activeRing,
   },

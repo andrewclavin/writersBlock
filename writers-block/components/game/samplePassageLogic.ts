@@ -67,14 +67,15 @@ export function buildWordModelFromParsedBook(bookWords: ParsedBookWord[]) {
   return { wordInfos, wordCounts, displayTokens };
 }
 
+/** First unplaced word per letter among tokens at or after `fromSlotIndex` in passage order. */
 export function computeNextWordsByLetter(
   wordInfos: WordInfo[],
   placedWords: Set<number>,
-  currentPosition: number
+  fromSlotIndex: number
 ): Map<string, { word: string; index: number }> {
   const map = new Map<string, { word: string; index: number }>();
   const unplacedWords = wordInfos.filter(
-    (info) => !placedWords.has(info.originalIndex) && info.originalIndex >= currentPosition
+    (info) => !placedWords.has(info.originalIndex) && info.originalIndex >= fromSlotIndex
   );
   const sorted = [...unplacedWords].sort((a, b) => a.alphabeticalIndex - b.alphabeticalIndex);
   sorted.forEach((info) => {

@@ -5,11 +5,18 @@ import { PassageWord } from './PassageWord';
 type PassageBodyProps = {
   words: string[];
   placedWords: Set<number>;
-  currentPosition: number;
+  selectedSlotIndex: number;
+  onSelectSlot: (index: number) => void;
   bottomInset: number;
 };
 
-export function PassageBody({ words, placedWords, currentPosition, bottomInset }: PassageBodyProps) {
+export function PassageBody({
+  words,
+  placedWords,
+  selectedSlotIndex,
+  onSelectSlot,
+  bottomInset,
+}: PassageBodyProps) {
   return (
     <ScrollView
       style={styles.scroll}
@@ -18,14 +25,19 @@ export function PassageBody({ words, placedWords, currentPosition, bottomInset }
       showsVerticalScrollIndicator={false}>
       <View style={styles.inner}>
         <View style={styles.flow}>
-          {words.map((word, index) => (
-            <PassageWord
-              key={`${index}-${word}`}
-              word={word}
-              isPlaced={placedWords.has(index)}
-              isCurrent={index === currentPosition}
-            />
-          ))}
+          {words.map((word, index) => {
+            const isPlaced = placedWords.has(index);
+            return (
+              <PassageWord
+                key={`${index}-${word}`}
+                word={word}
+                slotIndex={index}
+                isPlaced={isPlaced}
+                isSelected={index === selectedSlotIndex}
+                onSelectSlot={onSelectSlot}
+              />
+            );
+          })}
         </View>
       </View>
     </ScrollView>

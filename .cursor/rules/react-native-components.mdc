@@ -1,0 +1,28 @@
+---
+description: React Native screens/components — size, hooks, composition
+globs: writers-block/**/*.{tsx}
+alwaysApply: false
+---
+
+# Components & screens
+
+## Size
+
+- **Target ~50 lines** per file; **avoid exceeding ~100 lines**. If a file grows, split: presentational leaf components, layout wrappers, and **local hooks** (`usePassageScroll.ts`, `useBookSession.ts`).
+- One main export per file is fine; co-locate small private subcomponents in the same folder as separate files when they earn their own tests or reuse.
+
+## Data & actions at the edge
+
+- **Containers** (route screens, section wrappers): subscribe with typed Redux hooks and RTK Query hooks; pass **plain props** to dumb children.
+- **Leaf components**: props in, render out—no `useSelector` unless the leaf is intentionally a connected micro-widget (e.g. one optimized list row).
+
+## Performance (React Native)
+
+- Use **`React.memo`** for list rows and expensive pure subtrees when parent re-renders often.
+- **Lists**: `FlatList` / `FlashList` with stable `keyExtractor`, `renderItem`, and `extraData` only when needed.
+- Avoid inline style objects and inline callbacks in hot paths when profiling shows churn; prefer `useCallback` / `useMemo` where it measurably helps.
+
+## Files
+
+- Prefer **PascalCase** for components (`PassageWord.tsx`). Hooks and non-components: **`useX.ts`** / **`camelCase.ts`**.
+- Keep styles in the same file as the component until duplication forces a shared theme module.

@@ -1,0 +1,55 @@
+---
+description: Wireframe/Figma design source — how to read it and port UI into the Expo app
+globs: writers-block/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# Design source: `Wbwireframes/` + Figma
+
+## Where the reference lives
+
+- **Wireframes repo**: **`Wbwireframes/`** as a **sibling folder** of `writersBlock` on disk (typical path: `../Wbwireframes` from the `writersBlock` git root). Cursor **multi-root** workspaces attach both roots; **repo-scoped search** inside `writersBlock` alone will **not** see sibling files—read the spec via that absolute/sibling path or open files from the other root.
+- Optional: symlink `writersBlock/Wbwireframes` → sibling for tools that only index one repo.
+- **This app (`writers-block/`)** is the **only shipped code**. The Vite app in `Wbwireframes` is a **spec** (see `src/app/components/`, `guidelines/`, `src/styles/theme.css`).
+
+## Authority (when something conflicts)
+
+1. **Game/product behavior** in this repo (session state, books, parser rules, Expo Router).
+2. **These Cursor rules** + `constants/theme.ts` patterns.
+3. **Wireframes / Figma** — layout, rhythm, hierarchy, motion *intent*, and interaction affordances.
+
+Ignore wireframe routing, fake data, web-only APIs, or file structure if they do not match the real app.
+
+## How Figma maps to React Native (expectations)
+
+- **Figma “code” export** (HTML/CSS/React for web) is **not** pasted into the app. Treat it like a screenshot with hints: spacing, type scale, colors, stacking, motion notes.
+- **Use Figma for**: frames, auto-layout spacing, corner radii, color styles, **animation / prototype** timing if documented, component naming for glossaries.
+- **Implement in RN with**: `View` / `Text` / `Pressable`, flexbox, `StyleSheet` or a single theme module, **React Native Reanimated** for slide/collapse (already in the project). Prefer **one source of tokens** (`constants/theme.ts` or a sibling `designTokens.ts`) instead of magic numbers in leaf components.
+
+## Interaction parity
+
+| Wireframe / web idiom | React Native approach |
+|----------------------|------------------------|
+| Hover | **Web**: `Pressable` + `style` from hovered state or `role` + CSS on web; **native**: use `pressed` from `Pressable`, or skip hover. |
+| Active / focus | `Pressable` pressed state; optional `focusable` + web styles for keyboard. |
+| Slide / collapse | Reanimated shared values + layout animations, or `LayoutAnimation` for simple cases; sheets may use modal presentation or a bottom-sheet library when added. |
+| Scroll regions | `ScrollView` / `FlatList`; match *intent* (e.g. passage vs chrome), not web `overflow` strings. |
+
+## Porting workflow (repeatable)
+
+1. **Name the screen** in Expo Router terms (`app/...`) and list which wireframe frame(s) it corresponds to.
+2. **Pull tokens** (colors, spacing, radii, type) into **theme/constants** — not scattered literals.
+3. **Build layout** top-down: screen shell → sections → rows; keep files under ~100 lines (split per `react-native-components.mdc`).
+4. **Wire state** with `useAppSelector` / RTK Query at container edges; dumb components receive props.
+5. **Motion**: implement the *same user-visible outcome* (e.g. “panel slides in from bottom ~250ms”); exact easing can follow Reanimated defaults unless spec says otherwise.
+
+## Industry-aligned habits (short)
+
+- **Design tokens first**, then components — same as professional design-system handoffs.
+- **Figma Variables / styles** → one TS object per theme mode (light/dark) where applicable.
+- **Do not** chase pixel-perfect parity with web export; chase **consistent rhythm** and **readable structure**.
+- Optional later: **Storybook** or screen-level previews — not required for POC.
+
+## If the wireframes folder is missing locally
+
+Clone `Wbwireframes` next to `writersBlock` (or restore the multi-root workspace). `CLAUDE.md` lists the component mapping from wireframe files → Expo targets.

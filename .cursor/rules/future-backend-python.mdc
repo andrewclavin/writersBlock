@@ -1,0 +1,15 @@
+---
+description: Future Python backend / ML — keep the Expo client decoupled (optional context)
+globs: writers-block/src/state/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Future: Python services & ML
+
+Longer term, **server-side logic may live in Python** (LLM features, JEPA / world-model experimentation on texts and historical context). That work is **out of MVP scope** but should inform how we grow the client:
+
+- **Do not** bake Python-specific assumptions into UI components. Keep **HTTP (or similar) boundaries** behind RTK Query `baseQuery` / `queryFn` and env-based `baseUrl` when remote APIs appear.
+- **Today**: book data uses **local JSON + `queryFn`** (no server). **Later**: swap or add endpoints that call `fetch` to Python services without rewriting screens—only API layer and types.
+- **Shared contracts**: when APIs exist, prefer **OpenAPI-generated types** or a small hand-maintained `types/api.ts`—not ad hoc `any` in slices.
+
+This rule is **light context** for agents; detailed ML architecture belongs in separate design docs, not front-end rules.

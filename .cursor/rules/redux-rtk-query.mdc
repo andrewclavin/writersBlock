@@ -1,0 +1,34 @@
+---
+description: Redux Toolkit, RTK Query, and store wiring for Writer's Block
+globs: writers-block/src/state/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Redux Toolkit & RTK Query
+
+## Layers
+
+- **Pure game logic** (`src/game/*.ts`): no Redux imports. Returns new state + outcomes; UI/session code composes results into slices.
+- **Slices** (`src/state/**/`*Slice.ts`): client state, reducers, minimal logic. Prefer `createSlice`; use **RTK listeners** (`createListenerMiddleware`) for cross-slice reactions when an effect must run on many actions.
+- **RTK Query** (`src/state/api/`): server-ish and async I/O—book JSON, lexicon, future HTTP. Use `injectEndpoints` on `baseApi` so feature files stay small.
+
+## RTK Query
+
+- Define endpoints on `baseApi` with `injectEndpoints`; export generated hooks from the same file as the endpoint definition.
+- Use **tags** (`providesTags` / `invalidatesTags`) for cache coherence when books or sessions invalidate loaded data.
+- For static `require()` bundles on native vs `fetch` on web, use endpoint-specific `queryFn` (or split endpoints per platform), not UI conditionals.
+
+## Thunks vs hooks
+
+- Prefer **generated RTK Query hooks** (`useXQuery` / `useMutation`) in components for remote data.
+- Use **`useAppDispatch` / `useAppSelector`** from `writers-block/src/state/hooks.ts` everywhere instead of raw `useDispatch`/`useSelector`.
+- Use **`createAsyncThunk`** only when logic does not map to a single RTK Query request (e.g. complex orchestration). Avoid thunks that duplicate what an endpoint + `queryFn` could do.
+
+## Performance
+
+- Pass **stable handlers** from parents (`useCallback`) when memoized children depend on them; derive render data with `useMemo` only when profiling or cost is obvious.
+- **Select small slices** of state: fine-grained selectors or RTK’s `selectFromResult` on query hooks to limit re-renders.
+
+## Future remote APIs
+
+If Python (or other) backends arrive, keep **`fetchBaseQuery` + env `baseUrl`** or dedicated `queryFn` layers—see `.cursor/rules/future-backend-python.mdc`. MVP book JSON stays **local `queryFn`** (no server).

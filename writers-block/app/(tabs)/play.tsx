@@ -1,6 +1,8 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { DevPlayClearButton } from '@/components/game/DevPlayClearButton';
 import { GameKeyboard } from '@/components/game/keyboard/GameKeyboard';
 import { LexiconDrawer } from '@/components/game/lexicon/LexiconDrawer';
 import { PassageBody } from '@/components/game/passage/PassageBody';
@@ -36,12 +38,13 @@ export default function PlayScreen() {
     );
   }
 
-  return <PlayLoaded words={q.data.words} />;
+  return <PlayLoaded bookId={TINY_FIXTURE_BOOK_ID} words={q.data.words} />;
 }
 
-function PlayLoaded({ words }: { words: ParsedBookWord[] }) {
+function PlayLoaded({ bookId, words }: { bookId: string; words: ParsedBookWord[] }) {
   const tabBarHeight = useBottomTabBarHeight();
-  const session = usePlayFromParsedWords(words);
+  const insets = useSafeAreaInsets();
+  const session = usePlayFromParsedWords(words, bookId);
   const passageBottom = tabBarHeight + FOOTER_CHROME + KEYBOARD_BLOCK;
 
   return (
@@ -49,7 +52,8 @@ function PlayLoaded({ words }: { words: ParsedBookWord[] }) {
       <PassageBody
         words={session.words}
         placedWords={session.placedWords}
-        currentPosition={session.currentPosition}
+        selectedSlotIndex={session.selectedSlotIndex}
+        onSelectSlot={session.selectSlot}
         bottomInset={passageBottom}
       />
       <LexiconDrawer
@@ -66,8 +70,14 @@ function PlayLoaded({ words }: { words: ParsedBookWord[] }) {
         progress={session.progress}
         totalWords={session.totalActualWords}
         placedWords={session.placedActualWords}
-        currentPosition={session.currentPosition}
+        currentPosition={session.selectedSlotIndex}
         bottomOffset={tabBarHeight}
+      />
+      {/* Last so touches win over full-screen ScrollView; high z-index for stacking. */}
+      <DevPlayClearButton
+        onClear={session.handleReset}
+        top={insets.top + 6}
+        right={insets.right + 10}
       />
     </View>
   );
