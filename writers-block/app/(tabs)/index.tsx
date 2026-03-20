@@ -1,19 +1,17 @@
 import { Image } from 'expo-image';
 import { Platform, Pressable, StyleSheet } from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
-
 import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Link } from 'expo-router';
 
+import { useAppDispatch, useAppSelector } from '../../src/state/hooks';
 import { setLastBookId } from '../../src/state/session/sessionSlice';
-import type { AppDispatch, RootState } from '../../src/state/store';
 
 export default function HomeScreen() {
-  const dispatch = useDispatch<AppDispatch>();
-  const lastBookId = useSelector((state: RootState) => state.session.lastBookId);
+  const dispatch = useAppDispatch();
+  const lastBookId = useAppSelector((state) => state.session.lastBookId);
 
   return (
     <ParallaxScrollView

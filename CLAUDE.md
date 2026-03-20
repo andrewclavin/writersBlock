@@ -57,3 +57,10 @@ Word states: placed (locked, green underline), active slot (gold pulse), empty s
 - **Goal**: 10 distinct users complete at least one session **and** return within 7 days.
 - Defined upfront and used to decide whether to invest beyond the POC.
 
+## Frontend state & UI (Expo app)
+
+- **Redux**: `configureStore` in `writers-block/src/state/store.ts` — **session** slice (persisted) + **RTK Query** `baseApi` (`writers-block/src/state/api/baseApi.ts`). New endpoints use `injectEndpoints` on `baseApi`.
+- **Hooks**: `useAppDispatch` / `useAppSelector` from `writers-block/src/state/hooks.ts` — do not use untyped `useDispatch`/`useSelector` in app code.
+- **Cursor rules**: `.cursor/rules/redux-rtk-query.mdc` (RTK + RTK Query + layering) and `.cursor/rules/react-native-components.mdc` (component size ~50 lines, composition, memo/list perf).
+- **Design / wireframes**: `.cursor/rules/design-wireframes-figma.mdc` — how Figma/wireframe output relates to the Expo app (tokens, motion intent, RN mapping). **Reference assets** live in **`Wbwireframes/`** at the repo root (same workspace; not shipped with the Expo app). Treat exported code there as a **spec**, not copy-paste source.
+

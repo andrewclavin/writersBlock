@@ -1,11 +1,13 @@
 import { configureStore, combineReducers } from '@reduxjs/toolkit';
 import { persistReducer, persistStore } from 'redux-persist';
 
+import { baseApi } from './api/baseApi';
 import { sessionReducer } from './session/sessionSlice';
 import { persistConfig } from './persist';
 
 const rootReducer = combineReducers({
   session: sessionReducer,
+  [baseApi.reducerPath]: baseApi.reducer,
 });
 
 // `redux-persist` typing can be overly strict around the persisted state shape;
@@ -20,8 +22,9 @@ export const store = configureStore({
       // we ignore those to keep the default checks strict.
       serializableCheck: {
         ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE', 'persist/FLUSH', 'persist/PAUSE'],
+        ignoredPaths: ['api'],
       },
-    }),
+    }).concat(baseApi.middleware),
 });
 
 export const persistor = persistStore(store);
