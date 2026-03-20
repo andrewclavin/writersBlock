@@ -2,13 +2,10 @@ import { Platform } from 'react-native';
 
 import * as bookConfigs from '../config/bookConfigs';
 
+import type { BookJsonBundle } from './bookTypes';
+
 const CACHE_NAME = 'writers-block:v1:book-json';
 const BOOKS_PUBLIC_BASE_URL = '/books';
-
-type BookJsonBundle = {
-  words: any[];
-  lexicon: any[];
-};
 
 function getWebJsonUrls(bookId: string) {
   return {
@@ -38,7 +35,7 @@ async function loadJsonFromWebCache(url: string) {
   return res.json();
 }
 
-const nativeBookBundlesByBookId: Record<string, BookJsonBundle> = {
+const nativeBookBundlesByBookId: Record<string, { words: unknown[]; lexicon: unknown[] }> = {
   'age-of-innocence': {
     words: require('../../books/age-of-innocence/age-of-innocence.words.json'),
     lexicon: require('../../books/age-of-innocence/age-of-innocence.lexicon.json'),
@@ -62,12 +59,12 @@ export async function loadWordsAndLexicon(bookId: string): Promise<BookJsonBundl
       loadJsonFromWebCache(wordsUrl),
       loadJsonFromWebCache(lexiconUrl),
     ]);
-    return { words, lexicon };
+    return { words, lexicon } as BookJsonBundle;
   }
 
   const bundle = nativeBookBundlesByBookId[bookId];
   if (!bundle) throw new Error(`No native bundle configured for bookId "${bookId}".`);
 
-  return bundle;
+  return bundle as BookJsonBundle;
 }
 

@@ -2,6 +2,7 @@ import { configureStore, combineReducers } from '@reduxjs/toolkit';
 import { persistReducer, persistStore } from 'redux-persist';
 
 import { baseApi } from './api/baseApi';
+import './api/bookApi';
 import { sessionReducer } from './session/sessionSlice';
 import { persistConfig } from './persist';
 

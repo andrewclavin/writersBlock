@@ -60,7 +60,23 @@ Word states: placed (locked, green underline), active slot (gold pulse), empty s
 ## Frontend state & UI (Expo app)
 
 - **Redux**: `configureStore` in `writers-block/src/state/store.ts` — **session** slice (persisted) + **RTK Query** `baseApi` (`writers-block/src/state/api/baseApi.ts`). New endpoints use `injectEndpoints` on `baseApi`.
+- **Book bundles (RTK Query)**: `writers-block/src/state/api/bookApi.ts` — `useGetBookBundleQuery(bookId)`. **`tiny-fixture`** serves parser-shaped JSON from `writers-block/src/data/fixtures/tiny-book.*.json` (no network). Other ids delegate to `loadWordsAndLexicon` (bundled native `require` or web `/books/...`). Play tab uses the fixture by default until session-driven `bookId` is wired.
 - **Hooks**: `useAppDispatch` / `useAppSelector` from `writers-block/src/state/hooks.ts` — do not use untyped `useDispatch`/`useSelector` in app code.
-- **Cursor rules**: `.cursor/rules/redux-rtk-query.mdc` (RTK + RTK Query + layering) and `.cursor/rules/react-native-components.mdc` (component size ~50 lines, composition, memo/list perf).
-- **Design / wireframes**: `.cursor/rules/design-wireframes-figma.mdc` — how Figma/wireframe output relates to the Expo app (tokens, motion intent, RN mapping). **Reference assets** live in **`Wbwireframes/`** at the repo root (same workspace; not shipped with the Expo app). Treat exported code there as a **spec**, not copy-paste source.
+- **Cursor rules**: `.cursor/rules/redux-rtk-query.mdc`, `.cursor/rules/react-native-components.mdc`, `.cursor/rules/future-backend-python.mdc` (optional; Python/ML backend later—keep MVP client decoupled).
+- **Design / wireframes**: `.cursor/rules/design-wireframes-figma.mdc`. **Vite/React spec** lives in a **sibling repo** **`Wbwireframes/`** (e.g. `../Wbwireframes` next to `writersBlock` on disk). Cursor **multi-root workspaces** show both folders; searches scoped only to `writersBlock/` will not list those files—use the sibling path when reading the spec. Not shipped with the Expo app; treat as visual/UX reference only (`guidelines/`, `src/app/components/`, `src/styles/theme.css`).
+
+### UI component map (POC) — aligned with `Wbwireframes`
+
+| Wireframe (`Wbwireframes/src/app/components/`) | Expo / RN target | Notes |
+|--------------------------------------------------|------------------|--------|
+| **`TextDisplay`** + inner `WordSlot` | `components/game/passage/PassageBody.tsx`, `PassageWord.tsx` | Inline passage, serif body, **blank slots** (gray pill) vs **revealed** text; **active** slot ring. Extend for ghost/greyed states from game rules. |
+| **`AlphabetSelector`** + `LetterKey` | `components/game/keyboard/GameKeyboard.tsx`, `LetterKey.tsx` | QWERTY rows, staggered indent; key shows **letter + candidate word** when available. |
+| **`WordItinerary`** + `DraggableWord` | `components/game/lexicon/LexiconDrawer.tsx`, `LexiconLetterGroup.tsx`, `LexiconWordChip.tsx` | **Left edge** toggle, **spring slide** panel, letter headers, frequency badges. **Ignore** `react-dnd` for POC unless phrase-drag is in scope; use taps + game reducers first. |
+| **`GameHeader`** (fixed **bottom** bar) | `components/game/SessionProgressFooter.tsx` (or `PlayFooter.tsx`) | Book title + **gradient progress** + **position marker**; wireframe name is misleading—this is not a top header. |
+| **Shell** (current `App.tsx`) | `app/(tabs)/play.tsx` (or stack) | Compose the four regions + safe areas; Redux session + RTK Query book data. |
+| **Cascade / share** | `components/game/cascade/`, `components/game/share/` | Not in wireframe repo yet; driven by POC phases. |
+
+**Tokens**: port key colors from `Wbwireframes/src/styles/theme.css` (`:root` / `.dark`) into `constants/theme.ts` or `designTokens.ts` (wireframe also uses Tailwind arbitrary colors on chrome—purple/pink bar, blue marker, orange/pink drawer toggle—capture those as named tokens when implementing).
+
+**Data flow**: screen / shell uses `useAppSelector`, `useAppDispatch`, RTK Query hooks; leaves stay prop-driven. Split files approaching ~100 lines or colocate `usePlaySession.ts`.
 
