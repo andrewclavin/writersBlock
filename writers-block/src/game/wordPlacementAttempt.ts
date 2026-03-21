@@ -20,6 +20,8 @@ function cloneBookSession(session: BookSessionState): BookSessionState {
     wordBankPhraseDrafts: [...session.wordBankPhraseDrafts],
     attemptsBySlotIndex: { ...session.attemptsBySlotIndex },
     lockedSlotIndices: [...session.lockedSlotIndices],
+    lexiconMergeSinglesConsumed: { ...(session.lexiconMergeSinglesConsumed ?? {}) },
+    lexiconManualPhraseCounts: { ...(session.lexiconManualPhraseCounts ?? {}) },
   };
 }
 

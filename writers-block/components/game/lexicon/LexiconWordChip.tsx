@@ -9,16 +9,68 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 type LexiconWordChipProps = {
   word: string;
   remaining: number;
-  onPress: () => void;
+  onPress?: () => void;
+  /** Multi-word bank entries use a slightly wider chip and wrapped label. */
+  variant?: 'single' | 'phrase';
+  /** When false, outer press handling is done by a parent `GestureDetector`. */
+  interactive?: boolean;
+  /** Lexicon merge selection (tap-to-link). */
+  selected?: boolean;
+  /** Selection-cascade: hide label during "chip -> passage" beat (chip chrome stays). */
+  hideBodyForCascade?: boolean;
+  /** Brief green preview right before this chip flies to the passage slot. */
+  cascadePreview?: boolean;
 };
 
-export function LexiconWordChip({ word, remaining, onPress }: LexiconWordChipProps) {
+export function LexiconWordChip({
+  word,
+  remaining,
+  onPress,
+  variant = 'single',
+  interactive = true,
+  selected = false,
+  hideBodyForCascade = false,
+  cascadePreview = false,
+}: LexiconWordChipProps) {
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
+  const chipVisual = [
+    styles.chip,
+    cascadePreview && styles.chipCascadePreview,
+    selected && styles.chipSelected,
+    animStyle,
+  ];
+
+  const inner = (
+    <>
+      <Text
+        style={[
+          styles.word,
+          variant === 'phrase' && styles.wordPhrase,
+          cascadePreview && styles.wordCascadePreview,
+          hideBodyForCascade && styles.wordHidden,
+        ]}
+        numberOfLines={variant === 'phrase' ? 2 : 1}>
+        {word}
+      </Text>
+      <View style={[styles.badge, hideBodyForCascade && styles.badgeHidden]}>
+        <Text style={styles.badgeText}>{remaining}</Text>
+      </View>
+    </>
+  );
+
+  if (!interactive) {
+    return (
+      <Animated.View style={chipVisual}>
+        {inner}
+      </Animated.View>
+    );
+  }
+
   return (
     <AnimatedPressable
-      style={[styles.chip, animStyle]}
+      style={chipVisual}
       onPressIn={() => {
         scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
       }}
@@ -26,13 +78,10 @@ export function LexiconWordChip({ word, remaining, onPress }: LexiconWordChipPro
         scale.value = withSpring(1, { damping: 15, stiffness: 400 });
       }}
       onPress={() => {
-        Haptics.selectionAsync();
-        onPress();
+        void Haptics.selectionAsync();
+        onPress?.();
       }}>
-      <Text style={styles.word}>{word}</Text>
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>{remaining}</Text>
-      </View>
+      {inner}
     </AnimatedPressable>
   );
 }
@@ -52,10 +101,32 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
+  chipSelected: {
+    borderWidth: 2,
+    borderColor: GameChrome.activeRing,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+  },
+  chipCascadePreview: {
+    borderColor: GameChrome.cascadePreviewBorder,
+    borderWidth: StyleSheet.hairlineWidth * 2,
+  },
   word: {
     fontFamily: 'Georgia',
     fontSize: 14,
     color: GameChrome.passageText,
+  },
+  wordPhrase: {
+    maxWidth: 168,
+  },
+  wordCascadePreview: {
+    color: GameChrome.cascadePreviewWord,
+  },
+  wordHidden: {
+    opacity: 0,
+  },
+  badgeHidden: {
+    opacity: 0,
   },
   badge: {
     position: 'absolute',

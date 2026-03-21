@@ -67,17 +67,27 @@ export function buildWordModelFromParsedBook(bookWords: ParsedBookWord[]) {
   return { wordInfos, wordCounts, displayTokens };
 }
 
-/** First unplaced word per letter among tokens at or after `fromSlotIndex` in passage order. */
+export type KeyboardLetterCandidate = {
+  /** Canonical token expected at `index` (typing + placement). */
+  word: string;
+  index: number;
+  /** Grey prefix before `word` when showing a lexicon-linked phrase on the key. */
+  phrasePrefix?: string;
+  /** Grey suffix after `word` on the same key. */
+  phraseSuffix?: string;
+};
+
+/** Nearest unplaced word per letter at or after `fromSlotIndex`, in passage order. */
 export function computeNextWordsByLetter(
   wordInfos: WordInfo[],
   placedWords: Set<number>,
   fromSlotIndex: number
-): Map<string, { word: string; index: number }> {
-  const map = new Map<string, { word: string; index: number }>();
+): Map<string, KeyboardLetterCandidate> {
+  const map = new Map<string, KeyboardLetterCandidate>();
   const unplacedWords = wordInfos.filter(
     (info) => !placedWords.has(info.originalIndex) && info.originalIndex >= fromSlotIndex
   );
-  const sorted = [...unplacedWords].sort((a, b) => a.alphabeticalIndex - b.alphabeticalIndex);
+  const sorted = [...unplacedWords].sort((a, b) => a.originalIndex - b.originalIndex);
   sorted.forEach((info) => {
     const firstLetter = info.word[0].toUpperCase();
     if (!map.has(firstLetter)) {
@@ -89,7 +99,7 @@ export function computeNextWordsByLetter(
 
 export function computePlacedWordCounts(
   wordInfos: WordInfo[],
-  placedWords: Set<number>
+  placedWords: ReadonlySet<number>
 ): Map<string, number> {
   const counts = new Map<string, number>();
   wordInfos.forEach((info) => {

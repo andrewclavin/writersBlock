@@ -1,83 +1,135 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { LexiconWordChip } from './LexiconWordChip';
+import { LexiconMergingChip } from './LexiconMergingChip';
 
-type WordEntry = { word: string; remaining: number };
+export type LexiconDrawerEntry = {
+  entryKey: string;
+  display: string;
+  remaining: number;
+  isPhrase: boolean;
+};
 
 type LexiconLetterSectionProps = {
   letter: string;
-  wordsForLetter: WordEntry[];
+  itemsForLetter: LexiconDrawerEntry[];
   expanded: boolean;
   onToggleLetter: (letter: string) => void;
-  onWordPress: (word: string) => void;
+  selectedLexiconKey: string | null;
+  onLexiconChipTap: (entryKey: string) => void;
+  registerTarget: (key: string, node: View | null) => void;
+  onDragEnd: (fromKey: string, absoluteX: number, absoluteY: number) => void;
+  registerCascadeAnchor?: (key: string, node: View | null) => void;
+  collapseCascadeEntryKey?: string | null;
+  cascadePreviewKeys?: ReadonlySet<string> | null;
 };
 
 export function LexiconLetterSection({
   letter,
-  wordsForLetter,
+  itemsForLetter,
   expanded,
   onToggleLetter,
-  onWordPress,
+  selectedLexiconKey,
+  onLexiconChipTap,
+  registerTarget,
+  onDragEnd,
+  registerCascadeAnchor,
+  collapseCascadeEntryKey,
+  cascadePreviewKeys,
 }: LexiconLetterSectionProps) {
-  const sortedWords = useMemo(() => {
-    const list = [...wordsForLetter];
+  const sortedItems = useMemo(() => {
+    const list = [...itemsForLetter];
     if (expanded) {
-      return list.sort((a, b) => a.word.localeCompare(b.word));
+      return list.sort((a, b) => a.display.localeCompare(b.display));
     }
     return list.sort((a, b) => {
       if (b.remaining !== a.remaining) return b.remaining - a.remaining;
-      return a.word.localeCompare(b.word);
+      return a.display.localeCompare(b.display);
     });
-  }, [wordsForLetter, expanded]);
+  }, [itemsForLetter, expanded]);
 
-  const previewWords = sortedWords.slice(0, 3);
-  const displayWords = expanded ? sortedWords : previewWords;
-  const overflow = wordsForLetter.length - previewWords.length;
+  const previewItems = sortedItems.slice(0, 3);
+  const displayItems = expanded ? sortedItems : previewItems;
+  const overflow = itemsForLetter.length - previewItems.length;
 
-  if (wordsForLetter.length === 0) return null;
+  if (itemsForLetter.length === 0) return null;
 
   return (
     <View style={styles.block}>
       <View style={styles.row}>
-        <Pressable
-          onPress={() => onToggleLetter(letter)}
-          style={({ pressed }) => [styles.letterBtn, pressed && styles.letterBtnPressed]}>
-          <Text style={styles.letterText}>{letter}</Text>
-        </Pressable>
+        <View style={styles.letterCol}>
+          <Pressable
+            onPress={() => onToggleLetter(letter)}
+            style={({ pressed }) => [styles.letterBtn, pressed && styles.letterBtnPressed]}>
+            <Text style={styles.letterText}>{letter}</Text>
+          </Pressable>
+          {!expanded && (
+            <Ionicons
+              name="chevron-down"
+              size={12}
+              color="#9CA3AF"
+              style={styles.letterChevron}
+            />
+          )}
+        </View>
         <View style={styles.chips}>
           {!expanded ? (
             <>
-              {previewWords.map(({ word, remaining }) => (
-                <LexiconWordChip
-                  key={word}
-                  word={word}
-                  remaining={remaining}
-                  onPress={() => onWordPress(word)}
+              {previewItems.map((item) => (
+                <LexiconMergingChip
+                  key={item.entryKey}
+                  entryKey={item.entryKey}
+                  display={item.display}
+                  remaining={item.remaining}
+                  isPhrase={item.isPhrase}
+                  selected={selectedLexiconKey === item.entryKey}
+                  onChipTap={() => onLexiconChipTap(item.entryKey)}
+                  registerTarget={registerTarget}
+                  onDragEnd={onDragEnd}
+                  registerCascadeAnchor={registerCascadeAnchor}
+                  collapseCascadeEntryKey={collapseCascadeEntryKey}
+                  cascadePreviewKeys={cascadePreviewKeys}
                 />
               ))}
               {overflow > 0 && <Text style={styles.more}>+{overflow}</Text>}
             </>
           ) : (
-            displayWords.slice(0, Math.min(3, displayWords.length)).map(({ word, remaining }) => (
-              <LexiconWordChip
-                key={word}
-                word={word}
-                remaining={remaining}
-                onPress={() => onWordPress(word)}
+            displayItems.slice(0, Math.min(3, displayItems.length)).map((item) => (
+              <LexiconMergingChip
+                key={item.entryKey}
+                entryKey={item.entryKey}
+                display={item.display}
+                remaining={item.remaining}
+                isPhrase={item.isPhrase}
+                selected={selectedLexiconKey === item.entryKey}
+                onChipTap={() => onLexiconChipTap(item.entryKey)}
+                registerTarget={registerTarget}
+                onDragEnd={onDragEnd}
+                registerCascadeAnchor={registerCascadeAnchor}
+                collapseCascadeEntryKey={collapseCascadeEntryKey}
+                cascadePreviewKeys={cascadePreviewKeys}
               />
             ))
           )}
         </View>
       </View>
-      {expanded && displayWords.length > 3 && (
+      {expanded && displayItems.length > 3 && (
         <View style={styles.expandedRow}>
-          {displayWords.slice(3).map(({ word, remaining }) => (
-            <LexiconWordChip
-              key={word}
-              word={word}
-              remaining={remaining}
-              onPress={() => onWordPress(word)}
+            {displayItems.slice(3).map((item) => (
+            <LexiconMergingChip
+              key={item.entryKey}
+              entryKey={item.entryKey}
+              display={item.display}
+              remaining={item.remaining}
+              isPhrase={item.isPhrase}
+              selected={selectedLexiconKey === item.entryKey}
+              onChipTap={() => onLexiconChipTap(item.entryKey)}
+              registerTarget={registerTarget}
+              onDragEnd={onDragEnd}
+              registerCascadeAnchor={registerCascadeAnchor}
+              collapseCascadeEntryKey={collapseCascadeEntryKey}
+              cascadePreviewKeys={cascadePreviewKeys}
             />
           ))}
         </View>
@@ -96,23 +148,26 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 12,
   },
+  letterCol: {
+    width: 40,
+    alignItems: 'center',
+  },
   letterBtn: {
     width: 40,
     height: 40,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    backgroundColor: 'rgba(255,255,255,0.9)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   letterBtnPressed: {
-    borderColor: '#9CA3AF',
+    opacity: 0.7,
   },
   letterText: {
     fontSize: 18,
     fontWeight: '700',
     color: '#374151',
+  },
+  letterChevron: {
+    marginTop: -2,
   },
   chips: {
     flex: 1,

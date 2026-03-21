@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Alert, Platform, Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
+
+import { promptClearGameProgress } from '@/components/game/promptClearGameProgress';
 
 type DevPlayClearButtonProps = {
   onClear: () => void;
@@ -7,30 +9,14 @@ type DevPlayClearButtonProps = {
   right: number;
 };
 
-const CLEAR_MESSAGE = 'This removes all progress for this book on this device.';
-
 /** Dev-only control: confirm before wiping persisted play state for the current book. */
 export function DevPlayClearButton({ onClear, top, right }: DevPlayClearButtonProps) {
-  const confirm = () => {
-    // `react-native-web` implements `Alert.alert` as a no-op.
-    if (Platform.OS === 'web') {
-      if (typeof window !== 'undefined' && window.confirm(`Clear game?\n\n${CLEAR_MESSAGE}`)) {
-        onClear();
-      }
-      return;
-    }
-    Alert.alert('Clear game?', CLEAR_MESSAGE, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: onClear },
-    ]);
-  };
-
   return (
     <Pressable
       accessibilityLabel="Clear game progress"
       accessibilityRole="button"
       hitSlop={12}
-      onPress={confirm}
+      onPress={() => promptClearGameProgress(onClear)}
       style={({ pressed }) => [
         styles.btn,
         { top, right },

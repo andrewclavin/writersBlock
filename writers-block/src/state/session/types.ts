@@ -32,6 +32,18 @@ export interface BookSessionState {
    * Stored as string for stable JSON serialization.
    */
   lockedSlotIndices: string[];
+
+  /**
+   * Singles consumed by manual lexicon drag-merge (still unplaced in passage).
+   * Keys are canonical single-word strings.
+   */
+  lexiconMergeSinglesConsumed: Record<string, number>;
+
+  /**
+   * Phrases formed in the word bank via drag-merge. Keys are space-joined
+   * canonical tokens (e.g. "quick brown").
+   */
+  lexiconManualPhraseCounts: Record<string, number>;
 }
 
 export interface SessionState {

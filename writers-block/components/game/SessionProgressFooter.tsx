@@ -48,10 +48,10 @@ export function SessionProgressFooter({
   }));
 
   return (
-    <View style={[styles.wrap, { bottom: bottomOffset }]}>
+    <View style={[styles.wrap, { bottom: bottomOffset + FOOTER_LIFT_ABOVE_SAFE }]}>
       <View style={styles.row}>
         <View style={styles.titleRow}>
-          <Ionicons name="book-outline" size={16} color="#6B7280" />
+          <Ionicons name="book-outline" size={16} color="#4B5563" />
           <Text style={styles.title} numberOfLines={1}>
             {bookTitle}
           </Text>
@@ -78,7 +78,10 @@ export function SessionProgressFooter({
   );
 }
 
-const BAR_H = 32;
+/** Thinner bar — less visual weight than the previous ~32px track. */
+const BAR_H = 22;
+/** Extra space between the home indicator / screen bottom and this chrome. */
+const FOOTER_LIFT_ABOVE_SAFE = 16;
 
 const styles = StyleSheet.create({
   wrap: {
@@ -87,35 +90,38 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 40,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 12,
-    backgroundColor: 'rgba(255,255,255,0.94)',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0,0,0,0.06)',
+    paddingBottom: 6,
+    backgroundColor: 'transparent',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-end',
+    justifyContent: 'space-between',
     gap: 12,
   },
   titleRow: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    maxWidth: 100,
     marginBottom: 4,
+    marginRight: 4,
   },
   title: {
-    fontSize: 13,
+    fontSize: 14,
     fontStyle: 'italic',
     fontFamily: 'Georgia',
-    color: '#6B7280',
+    color: '#4B5563',
     flex: 1,
   },
   barOuter: {
-    flex: 1,
-    maxWidth: 420,
+    width: '42%',
+    maxWidth: 220,
     minWidth: 120,
+    flexShrink: 0,
   },
   track: {
     height: BAR_H,
@@ -150,11 +156,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     zIndex: 3,
   },
   numPlaced: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#FFFFFF',
     textShadowColor: 'rgba(0,0,0,0.35)',
@@ -162,8 +168,8 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   numTotal: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#374151',
+    color: '#4B5E54',
   },
 });
