@@ -72,6 +72,7 @@ export function GameKeyboard({
                 letter={letter}
                 hasWord={!!data}
                 word={data?.word}
+                displayWord={data?.displayWord}
                 phrasePrefix={data?.phrasePrefix}
                 phraseSuffix={data?.phraseSuffix}
                 wordIndex={data?.index}

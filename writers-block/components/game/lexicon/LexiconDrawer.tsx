@@ -30,7 +30,7 @@ const drawerTiming = {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type LexiconDrawerProps = {
-  wordEntries: { word: string; remaining: number }[];
+  wordEntries: { word: string; remaining: number; display?: string }[];
   phraseEntries: { phrase: string; remaining: number }[];
   onLexiconMergeKeys: (fromKey: string, toKey: string) => boolean;
   /** Fires when the drawer finishes opening (visible) or closing (hidden). */
@@ -141,11 +141,11 @@ export function LexiconDrawer({
       map.get(L)!.push(item);
     };
 
-    wordEntries.forEach(({ word, remaining }) => {
+    wordEntries.forEach(({ word, remaining, display }) => {
       if (!word) return;
       push(word.charAt(0), {
         entryKey: word,
-        display: word,
+        display: display ?? word,
         remaining,
         isPhrase: false,
       });

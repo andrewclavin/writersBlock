@@ -26,7 +26,7 @@ function collectSortedBankUnits(
   for (const [word, total] of wordCounts) {
     const placed = placedWordCounts.get(word) ?? 0;
     const consumed = lexiconMergeSinglesConsumed[word] ?? 0;
-    let rem = total - placed - consumed;
+    let rem = Math.max(0, total - Math.max(placed, consumed));
     while (rem > 0) {
       units.push({ kind: 'word', sortKey: word });
       rem--;
@@ -65,6 +65,43 @@ export type CascadePlanUnit = {
 };
 
 /**
+ * Finds phrase bank entries where a passage occurrence is partially placed
+ * (at least one slot locked, at least one empty). Returns plan units covering
+ * only the empty slots — those are the ones that need to fly in.
+ */
+function collectPartialPhraseCascades(
+  effectivePhraseBankCounts: Readonly<Record<string, number>>,
+  canonicalBySlot: readonly string[],
+  placedWords: ReadonlySet<number>
+): CascadePlanUnit[] {
+  const plan: CascadePlanUnit[] = [];
+  for (const [phraseKey, count] of Object.entries(effectivePhraseBankCounts)) {
+    if (!count || count <= 0) continue;
+    const tokens = phraseKey.trim().split(/\s+/).filter(Boolean);
+    const L = tokens.length;
+    if (L < 2) continue;
+    for (let S = 0; S <= canonicalBySlot.length - L; S++) {
+      let match = true;
+      for (let j = 0; j < L; j++) {
+        if (canonicalBySlot[S + j] !== tokens[j]) { match = false; break; }
+      }
+      if (!match) continue;
+      const emptyInSpan: number[] = [];
+      let anyPlaced = false;
+      for (let j = 0; j < L; j++) {
+        if (placedWords.has(S + j)) anyPlaced = true;
+        else emptyInSpan.push(S + j);
+      }
+      if (anyPlaced && emptyInSpan.length > 0) {
+        plan.push({ kind: 'phrase', slotIndices: emptyInSpan, label: phraseKey });
+      }
+    }
+  }
+  plan.sort((a, b) => a.slotIndices[0]! - b.slotIndices[0]!);
+  return plan;
+}
+
+/**
  * **Lockstep selection cascade** — Walk the alphabetically sorted bank and the
  * empty passage slots in parallel.  Bank entry #N is compared to empty slot #N.
  * If the entry's token(s) match the slot(s), it cascades and the slot cursor
@@ -100,14 +137,23 @@ export function computeGreedyCascadeRound(
     effectivePhraseBankCounts
   );
 
+  // Phase 1: partially-placed phrases — some slots already locked, rest cascade in.
+  const partials = collectPartialPhraseCascades(
+    effectivePhraseBankCounts,
+    canonicalBySlot,
+    placedWords
+  );
+  const partialSlots = new Set(partials.flatMap((u) => u.slotIndices));
+
+  // Phase 2: lockstep walk for fully-empty matches.
   const emptySlots: number[] = [];
   for (let i = 0; i < canonicalBySlot.length; i++) {
-    if (!placedWords.has(i)) emptySlots.push(i);
+    if (!placedWords.has(i) && !partialSlots.has(i)) emptySlots.push(i);
   }
-  if (emptySlots.length === 0 || bankUnits.length === 0) return [];
+  if (emptySlots.length === 0 && partials.length === 0 && bankUnits.length === 0) return [];
 
-  const plan: CascadePlanUnit[] = [];
-  let j = 0; // empty-slot cursor
+  const lockstep: CascadePlanUnit[] = [];
+  let j = 0;
 
   for (let i = 0; i < bankUnits.length && j < emptySlots.length; i++) {
     const u = bankUnits[i]!;
@@ -115,7 +161,7 @@ export function computeGreedyCascadeRound(
     if (u.kind === 'word') {
       const token = canonicalBySlot[emptySlots[j]!] ?? '';
       if (token === u.sortKey) {
-        plan.push({ kind: 'word', slotIndices: [emptySlots[j]!], label: u.sortKey });
+        lockstep.push({ kind: 'word', slotIndices: [emptySlots[j]!], label: u.sortKey });
       }
       j += 1;
     } else {
@@ -129,7 +175,7 @@ export function computeGreedyCascadeRound(
           }
         }
         if (ok) {
-          plan.push({
+          lockstep.push({
             kind: 'phrase',
             slotIndices: emptySlots.slice(j, j + L),
             label: u.sortKey,
@@ -144,7 +190,7 @@ export function computeGreedyCascadeRound(
     }
   }
 
-  return plan;
+  return [...partials, ...lockstep];
 }
 
 /**

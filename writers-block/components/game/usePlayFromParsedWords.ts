@@ -41,10 +41,13 @@ import {
 import {
   buildBookCanonicalSequence,
   buildCanonicalBySlot,
+  detectAutoChainPhrases,
+  findAllPhraseOccurrenceSlots,
   resolveValidLexiconMerge,
 } from './lexicon/lexiconMergeLogic';
 import type { KeyboardLetterCandidate } from './samplePassageLogic';
 import {
+  buildVariantDisplayMap,
   buildWordModelFromParsedBook,
   computeNextWordsByLetter,
   computePlacedWordCounts,
@@ -133,6 +136,7 @@ export function usePlayFromParsedWords(
 
   const bookCanonicals = useMemo(() => buildBookCanonicalSequence(bookWords), [bookWords]);
   const canonicalBySlot = useMemo(() => buildCanonicalBySlot(bookWords), [bookWords]);
+  const variantDisplayMap = useMemo(() => buildVariantDisplayMap(bookWords), [bookWords]);
 
   const slotCount = displayTokens.length;
 
@@ -151,15 +155,18 @@ export function usePlayFromParsedWords(
         const phraseMap = buildPhraseAwareKeyboardMap(
           selectedSlotIndex,
           window,
-          eff
+          eff,
+          canonicalBySlot,
+          placed,
+          displayTokens
         );
         if (phraseMap.size > 0) return new Map(phraseMap);
       }
       return new Map(
-        computeNextWordsByLetter(wordInfos, placed, selectedSlotIndex)
+        computeNextWordsByLetter(wordInfos, placed, selectedSlotIndex, displayTokens)
       );
     },
-    [bookId, canonicalBySlot, wordInfos]
+    [bookId, canonicalBySlot, displayTokens, wordInfos]
   );
 
   const runSingleRoundCascadeFlights = useCallback(
@@ -436,13 +443,18 @@ export function usePlayFromParsedWords(
       const phraseMap = buildPhraseAwareKeyboardMap(
         selectedSlotIndex,
         activePhraseWindow,
-        effectivePhraseBankCounts
+        effectivePhraseBankCounts,
+        canonicalBySlot,
+        placedWords,
+        displayTokens
       );
       if (phraseMap.size > 0) return phraseMap;
     }
-    return computeNextWordsByLetter(wordInfos, placedWords, selectedSlotIndex);
+    return computeNextWordsByLetter(wordInfos, placedWords, selectedSlotIndex, displayTokens);
   }, [
     activePhraseWindow,
+    canonicalBySlot,
+    displayTokens,
     effectivePhraseBankCounts,
     placedWords,
     selectedSlotIndex,
@@ -489,10 +501,11 @@ export function usePlayFromParsedWords(
     return Array.from(wordCounts.entries())
       .map(([word, total]) => ({
         word,
-        remaining: total - (placedWordCounts.get(word) || 0) - (consumed[word] || 0),
+        remaining: Math.max(0, total - Math.max(placedWordCounts.get(word) || 0, consumed[word] || 0)),
+        display: variantDisplayMap.get(word),
       }))
       .filter((e) => e.remaining > 0);
-  }, [bookState?.lexiconMergeSinglesConsumed, placedWordCounts, wordCounts]);
+  }, [bookState?.lexiconMergeSinglesConsumed, placedWordCounts, variantDisplayMap, wordCounts]);
 
   const lexiconPhraseEntries = useMemo(
     () =>
@@ -525,9 +538,10 @@ export function usePlayFromParsedWords(
       );
 
       const singleRemaining = (word: string) =>
-        (wordCounts.get(word) || 0) -
-        (placedWordCounts.get(word) || 0) -
-        (mergeConsumed[word] || 0);
+        Math.max(0,
+          (wordCounts.get(word) || 0) -
+          Math.max(placedWordCounts.get(word) || 0, mergeConsumed[word] || 0)
+        );
 
       const canTake = (key: string) => {
         if (key.includes(' ')) return (effectivePhrases[key] ?? 0) >= 1;
@@ -536,23 +550,70 @@ export function usePlayFromParsedWords(
 
       if (!canTake(resolved.leftKey) || !canTake(resolved.rightKey)) return false;
 
+      const phraseTokens = resolved.mergedPhrase.split(/\s+/);
+      const allOccurrences = findAllPhraseOccurrenceSlots(canonicalBySlot, phraseTokens);
+      const totalOccurrences = allOccurrences.length;
+
       dispatch(
         applyLexiconPhraseMerge({
           bookId,
           leftKey: resolved.leftKey,
           rightKey: resolved.rightKey,
           mergedPhrase: resolved.mergedPhrase,
+          totalOccurrences,
         })
       );
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+      // Auto-chain: detect overlapping phrases that form longer phrases.
+      let latestPhrase = resolved.mergedPhrase;
+      for (let round = 0; round < 10; round++) {
+        const st = store.getState().session.byBookId[bookId];
+        const currentPhrases = st?.lexiconManualPhraseCounts ?? {};
+        const chains = detectAutoChainPhrases(latestPhrase, currentPhrases, canonicalBySlot);
+        if (chains.length === 0) break;
+        for (const ch of chains) {
+          dispatch(
+            applyLexiconPhraseMerge({
+              bookId,
+              leftKey: ch.leftKey,
+              rightKey: ch.rightKey,
+              mergedPhrase: ch.mergedPhrase,
+              totalOccurrences: ch.totalOccurrences,
+            })
+          );
+          latestPhrase = ch.mergedPhrase;
+        }
+      }
+
+      // Auto-lock any phrase instance where at least one word is already placed.
+      const stAfterChain = store.getState().session.byBookId[bookId];
+      const manualAfterChain = stAfterChain?.lexiconManualPhraseCounts ?? {};
+      const autoLock = new Set(placedNow);
+      for (const [pk, cnt] of Object.entries(manualAfterChain)) {
+        if (!cnt || cnt <= 0) continue;
+        const pTokens = pk.trim().split(/\s+/).filter(Boolean);
+        const occs = findAllPhraseOccurrenceSlots(canonicalBySlot, pTokens);
+        for (const occ of occs) {
+          if (occ.some((si) => placedNow.has(si))) {
+            for (const si of occ) autoLock.add(si);
+          }
+        }
+      }
+      if (autoLock.size > placedNow.size) {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        dispatch(
+          lockSlotIndices({
+            bookId,
+            lockedSlotIndices: [...autoLock]
+              .map(String)
+              .sort((a, b) => Number(a) - Number(b)),
+          })
+        );
+      }
+
+      const placedAfterMerge = autoLock;
       const after = store.getState().session.byBookId[bookId];
-      const lockedAfter = after?.lockedSlotIndices ?? [];
-      const placedAfterMerge = new Set(
-        lockedAfter
-          .map(Number)
-          .filter((n) => Number.isFinite(n) && n >= 0 && n < slotCount)
-      );
       const consumedAfter = after?.lexiconMergeSinglesConsumed ?? {};
       const manualAfter = after?.lexiconManualPhraseCounts ?? {};
       const planAfterMerge = computeGreedyCascadeRound(

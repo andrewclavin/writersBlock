@@ -87,9 +87,12 @@ export const sessionSlice = createSlice({
         leftKey: string;
         rightKey: string;
         mergedPhrase: string;
+        /** Total passage occurrences of the merged phrase. When set, each
+         *  single-word input is consumed × this count and phrase count = this value. */
+        totalOccurrences?: number;
       }>
     ) {
-      const { bookId, leftKey, rightKey, mergedPhrase } = action.payload;
+      const { bookId, leftKey, rightKey, mergedPhrase, totalOccurrences } = action.payload;
       const bookState = ensureBookState(state, bookId);
 
       const decMap = (rec: Record<string, number>, key: string) => {
@@ -98,19 +101,28 @@ export const sessionSlice = createSlice({
         else rec[key] = next;
       };
 
+      const consumeSingle = (word: string, count: number) => {
+        const n = (bookState.lexiconMergeSinglesConsumed[word] ?? 0) + count;
+        bookState.lexiconMergeSinglesConsumed[word] = n;
+      };
+
       const consumeKey = (key: string) => {
-        if (key.includes(' ')) decMap(bookState.lexiconManualPhraseCounts, key);
-        else {
-          const n = (bookState.lexiconMergeSinglesConsumed[key] ?? 0) + 1;
-          bookState.lexiconMergeSinglesConsumed[key] = n;
+        if (key.includes(' ')) {
+          decMap(bookState.lexiconManualPhraseCounts, key);
+        } else {
+          consumeSingle(key, totalOccurrences ?? 1);
         }
       };
 
       consumeKey(leftKey);
       consumeKey(rightKey);
 
-      const prev = bookState.lexiconManualPhraseCounts[mergedPhrase] ?? 0;
-      bookState.lexiconManualPhraseCounts[mergedPhrase] = prev + 1;
+      if (totalOccurrences != null) {
+        bookState.lexiconManualPhraseCounts[mergedPhrase] = totalOccurrences;
+      } else {
+        const prev = bookState.lexiconManualPhraseCounts[mergedPhrase] ?? 0;
+        bookState.lexiconManualPhraseCounts[mergedPhrase] = prev + 1;
+      }
     },
   },
 });

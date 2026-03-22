@@ -19,6 +19,8 @@ type LetterKeyProps = {
   letter: string;
   hasWord: boolean;
   word?: string;
+  /** Raw form from the passage slot (with capitalization + punctuation) for display. */
+  displayWord?: string;
   /** Grey fragments around `word` for lexicon phrase display (typing still uses `word`). */
   phrasePrefix?: string;
   phraseSuffix?: string;
@@ -53,6 +55,7 @@ export function LetterKey({
   letter,
   hasWord,
   word,
+  displayWord,
   phrasePrefix,
   phraseSuffix,
   wordIndex,
@@ -76,7 +79,7 @@ export function LetterKey({
   const [minKeyWidth, setMinKeyWidth] = useState(48);
 
   const displayForWidth =
-    hasWord && word ? `${phrasePrefix ?? ''}${word}${phraseSuffix ?? ''}` : '';
+    hasWord && word ? `${phrasePrefix ?? ''}${displayWord ?? word}${phraseSuffix ?? ''}` : '';
   const phraseLinked = !!(phrasePrefix || phraseSuffix);
 
   useEffect(() => {
@@ -99,8 +102,9 @@ export function LetterKey({
     );
   }
 
-  const first = word.charAt(0);
-  const rest = word.slice(1);
+  const shown = displayWord ?? word;
+  const first = shown.charAt(0);
+  const rest = shown.slice(1);
 
   const webFocusProps =
     Platform.OS === 'web' && hasWord && word && wordIndex !== undefined
