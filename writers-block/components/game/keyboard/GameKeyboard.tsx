@@ -25,8 +25,10 @@ type GameKeyboardProps = {
   onLetterFocusHighlight?: (wordIndex: number, word: string) => void;
   /** Web: clear typing highlight when focus leaves all letter keys. */
   onClearLetterHighlight?: () => void;
-  /** Letter-by-letter cascade: hide this many leading graphemes on the matching key. */
-  cascadeHideKeyboard?: { letter: string; charCount: number } | null;
+  /** Per-key leading graphemes hidden during cascade (supports overlapping units). */
+  cascadeLetterHides?: ReadonlyMap<string, number> | null;
+  /** Per-key 0–1 green glow strength. */
+  cascadeLetterGlow?: ReadonlyMap<string, number> | null;
   registerLetterCascadeAnchor?: (letter: string, node: View | null) => void;
 };
 
@@ -39,7 +41,8 @@ export function GameKeyboard({
   highlightedCandidateWord = null,
   onLetterFocusHighlight,
   onClearLetterHighlight,
-  cascadeHideKeyboard = null,
+  cascadeLetterHides = null,
+  cascadeLetterGlow = null,
   registerLetterCascadeAnchor,
 }: GameKeyboardProps) {
   const onLetterBlurCheckLeave = useCallback(() => {
@@ -87,10 +90,11 @@ export function GameKeyboard({
                 onLetterFocus={onLetterFocusHighlight}
                 onLetterBlurCheckLeave={onLetterBlurCheckLeave}
                 cascadeHideCharCount={
-                  cascadeHideKeyboard?.letter === letter
-                    ? cascadeHideKeyboard.charCount
+                  cascadeLetterHides != null && cascadeLetterHides.has(letter)
+                    ? cascadeLetterHides.get(letter)!
                     : undefined
                 }
+                cascadeKeyGlowStrength={cascadeLetterGlow?.get(letter) ?? 0}
                 onLetterAnchorRef={(node) => registerLetterCascadeAnchor?.(letter, node)}
               />
             );

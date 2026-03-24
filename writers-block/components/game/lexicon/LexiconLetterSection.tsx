@@ -23,6 +23,8 @@ type LexiconLetterSectionProps = {
   registerCascadeAnchor?: (key: string, node: View | null) => void;
   collapseCascadeEntryKey?: string | null;
   cascadePreviewKeys?: ReadonlySet<string> | null;
+  cascadeHideCharByKey?: ReadonlyMap<string, number> | null;
+  cascadeGlowByKey?: ReadonlyMap<string, number> | null;
 };
 
 export function LexiconLetterSection({
@@ -37,6 +39,8 @@ export function LexiconLetterSection({
   registerCascadeAnchor,
   collapseCascadeEntryKey,
   cascadePreviewKeys,
+  cascadeHideCharByKey,
+  cascadeGlowByKey,
 }: LexiconLetterSectionProps) {
   const sortedItems = useMemo(() => {
     const list = [...itemsForLetter];
@@ -90,6 +94,8 @@ export function LexiconLetterSection({
                   registerCascadeAnchor={registerCascadeAnchor}
                   collapseCascadeEntryKey={collapseCascadeEntryKey}
                   cascadePreviewKeys={cascadePreviewKeys}
+                  cascadeHideCharByKey={cascadeHideCharByKey}
+                  cascadeGlowByKey={cascadeGlowByKey}
                 />
               ))}
               {overflow > 0 && <Text style={styles.more}>+{overflow}</Text>}
@@ -109,6 +115,8 @@ export function LexiconLetterSection({
                 registerCascadeAnchor={registerCascadeAnchor}
                 collapseCascadeEntryKey={collapseCascadeEntryKey}
                 cascadePreviewKeys={cascadePreviewKeys}
+                cascadeHideCharByKey={cascadeHideCharByKey}
+                cascadeGlowByKey={cascadeGlowByKey}
               />
             ))
           )}
@@ -130,6 +138,8 @@ export function LexiconLetterSection({
               registerCascadeAnchor={registerCascadeAnchor}
               collapseCascadeEntryKey={collapseCascadeEntryKey}
               cascadePreviewKeys={cascadePreviewKeys}
+              cascadeHideCharByKey={cascadeHideCharByKey}
+              cascadeGlowByKey={cascadeGlowByKey}
             />
           ))}
         </View>

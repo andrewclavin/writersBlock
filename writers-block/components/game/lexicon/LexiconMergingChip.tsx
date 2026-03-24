@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { useCallback, useMemo } from 'react';
 import { View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { runOnJS } from 'react-native-reanimated';
 
 import { LexiconWordChip } from './LexiconWordChip';
 
@@ -14,10 +14,13 @@ type LexiconMergingChipProps = {
   selected: boolean;
   onChipTap: () => void;
   registerTarget: (key: string, node: View | null) => void;
-  onDragEnd: (fromKey: string, absoluteX: number, absoluteY: number) => void;
+  /** Unused: merge is tap-to-link only (no drag across the page). */
+  onDragEnd?: (fromKey: string, absoluteX: number, absoluteY: number) => void;
   registerCascadeAnchor?: (key: string, node: View | null) => void;
   collapseCascadeEntryKey?: string | null;
   cascadePreviewKeys?: ReadonlySet<string> | null;
+  cascadeHideCharByKey?: ReadonlyMap<string, number> | null;
+  cascadeGlowByKey?: ReadonlyMap<string, number> | null;
 };
 
 export function LexiconMergingChip({
@@ -28,10 +31,12 @@ export function LexiconMergingChip({
   selected,
   onChipTap,
   registerTarget,
-  onDragEnd,
+  onDragEnd: _onDragEnd,
   registerCascadeAnchor,
   collapseCascadeEntryKey,
   cascadePreviewKeys,
+  cascadeHideCharByKey,
+  cascadeGlowByKey,
 }: LexiconMergingChipProps) {
   const setTargetRef = useCallback(
     (node: View | null) => {
@@ -39,17 +44,6 @@ export function LexiconMergingChip({
       registerCascadeAnchor?.(entryKey, node);
     },
     [entryKey, registerCascadeAnchor, registerTarget]
-  );
-
-  const tx = useSharedValue(0);
-  const ty = useSharedValue(0);
-  const z = useSharedValue(1);
-
-  const finishDrag = useCallback(
-    (ax: number, ay: number) => {
-      onDragEnd(entryKey, ax, ay);
-    },
-    [entryKey, onDragEnd]
   );
 
   const fireTap = useCallback(() => {
@@ -65,39 +59,11 @@ export function LexiconMergingChip({
     [fireTap]
   );
 
-  const pan = useMemo(
-    () =>
-      Gesture.Pan()
-        .minDistance(14)
-        .maxPointers(1)
-        .onStart(() => {
-          z.value = 50;
-        })
-        .onUpdate((e) => {
-          tx.value = e.translationX;
-          ty.value = e.translationY;
-        })
-        .onEnd((e) => {
-          runOnJS(finishDrag)(e.absoluteX, e.absoluteY);
-        })
-        .onFinalize(() => {
-          z.value = 1;
-          tx.value = withSpring(0, { damping: 18, stiffness: 220 });
-          ty.value = withSpring(0, { damping: 18, stiffness: 220 });
-        }),
-    [finishDrag, tx, ty, z]
-  );
-
-  const composed = useMemo(() => Gesture.Exclusive(pan, tap), [pan, tap]);
-
-  const dragStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: tx.value }, { translateY: ty.value }],
-    zIndex: z.value,
-  }));
+  const composed = useMemo(() => tap, [tap]);
 
   return (
     <GestureDetector gesture={composed}>
-      <Animated.View style={dragStyle}>
+      <View>
         <View ref={setTargetRef} collapsable={false} style={{ alignSelf: 'flex-start' }}>
           <LexiconWordChip
             word={display}
@@ -107,9 +73,15 @@ export function LexiconMergingChip({
             selected={selected}
             hideBodyForCascade={collapseCascadeEntryKey === entryKey}
             cascadePreview={!!cascadePreviewKeys?.has(entryKey)}
+            cascadeHideCharCount={
+              cascadeHideCharByKey != null && cascadeHideCharByKey.has(entryKey)
+                ? cascadeHideCharByKey.get(entryKey)!
+                : undefined
+            }
+            cascadeGlowStrength={cascadeGlowByKey?.get(entryKey) ?? 0}
           />
         </View>
-      </Animated.View>
+      </View>
     </GestureDetector>
   );
 }

@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CascadeFlightOverlay } from '@/components/game/cascade/CascadeFlightOverlay';
 import { PlaySessionMenu } from '@/components/game/PlaySessionMenu';
 import { GameKeyboard } from '@/components/game/keyboard/GameKeyboard';
 import { LexiconDrawer } from '@/components/game/lexicon/LexiconDrawer';
@@ -50,11 +49,7 @@ function PlayLoaded({ bookId, words }: { bookId: string; words: ParsedBookWord[]
   const insets = useSafeAreaInsets();
   const bottomSafe = insets.bottom;
   const [lexiconDrawerOpen, setLexiconDrawerOpen] = useState(false);
-  const lexiconOpenRef = useRef(lexiconDrawerOpen);
-  lexiconOpenRef.current = lexiconDrawerOpen;
-  const session = usePlayFromParsedWords(words, bookId, {
-    getLexiconDrawerOpen: () => lexiconOpenRef.current,
-  });
+  const session = usePlayFromParsedWords(words, bookId);
   const passageBottom =
     bottomSafe + FOOTER_CHROME + (lexiconDrawerOpen ? PASSAGE_BOTTOM_LEXICON_ONLY : KEYBOARD_BLOCK);
 
@@ -85,7 +80,8 @@ function PlayLoaded({ bookId, words }: { bookId: string; words: ParsedBookWord[]
         activePhraseSpan={session.activePhraseSpan}
         paragraphBreakIndices={session.paragraphBreakIndices}
         onSlotAnchorRef={session.registerSlotCascadeAnchor}
-        cascadePreviewSlots={session.cascadePreviewSlots}
+        cascadePillAttractBySlot={session.cascadePillAttractBySlot}
+        cascadeGreySquashBySlot={session.cascadeGreySquashBySlot}
         cascadeRevealBySlot={session.cascadeRevealBySlot}
         onSelectSlot={onSelectPassageSlot}
         bottomInset={passageBottom}
@@ -96,8 +92,8 @@ function PlayLoaded({ bookId, words }: { bookId: string; words: ParsedBookWord[]
         onLexiconMergeKeys={session.tryMergeLexiconKeys}
         onDrawerOpenChange={setLexiconDrawerOpen}
         registerCascadeAnchor={session.registerLexiconCascadeAnchor}
-        collapseCascadeEntryKey={session.collapseLexiconKey}
-        cascadePreviewKeys={session.cascadePreviewLexiconKeys}
+        cascadeHideCharByKey={session.cascadeLexiconHide}
+        cascadeGlowByKey={session.cascadeLexiconGlow}
       />
       <GameKeyboard
         visible={!lexiconDrawerOpen}
@@ -108,13 +104,9 @@ function PlayLoaded({ bookId, words }: { bookId: string; words: ParsedBookWord[]
         highlightedCandidateWord={Platform.OS === 'web' ? (highlight?.word ?? null) : null}
         onLetterFocusHighlight={Platform.OS === 'web' ? setHighlightFromLetterFocus : undefined}
         onClearLetterHighlight={Platform.OS === 'web' ? clearHighlight : undefined}
-        cascadeHideKeyboard={session.cascadeHideKeyboard}
+        cascadeLetterHides={session.cascadeLetterHides}
+        cascadeLetterGlow={session.cascadeLetterGlow}
         registerLetterCascadeAnchor={session.registerLetterCascadeAnchor}
-      />
-      <CascadeFlightOverlay
-        flight={session.cascadeFlight}
-        durationMs={session.cascadeFlightDurationMs}
-        onFinished={session.onCascadeFlightFinished}
       />
       <SessionProgressFooter
         bookTitle="Tiny fixture"

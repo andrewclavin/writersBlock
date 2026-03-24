@@ -32,6 +32,10 @@ export const GameChrome = {
   cascadePreviewPillFill: 'rgba(95, 168, 136, 0.14)',
   cascadePreviewBorder: 'rgba(61, 122, 92, 0.55)',
   cascadePreviewWord: '#2D6A4F',
+  /** Letter-cascade: soft ring behind the grey pill (halo, not pill fill). */
+  cascadeHaloFill: 'rgba(95, 168, 136, 0.55)',
+  cascadeHaloShadow: '#5FA888',
+  cascadeKeyGlowBorder: 'rgba(61, 122, 92, 0.85)',
 } as const;
 
 export const GameMotion = {

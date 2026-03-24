@@ -4,10 +4,17 @@ import { computeEffectivePhraseBankCounts } from '@/components/game/lexicon/lexi
 export const CASCADE_SOURCE_HIDE_BEAT_MS = 175;
 /** Pause after one unit lands before the next begins. */
 export const CASCADE_BETWEEN_UNITS_MS = 235;
-/** Linear move from source to passage slot. */
+/** @deprecated Bank flights removed; letter cascade only. Kept for any stale imports. */
 export const CASCADE_FLIGHT_DURATION_MS = 400;
-/** Green preview on passage + lexicon chip before a bank flight. */
+/** @deprecated Replaced by passage attract + per-letter cascade. */
 export const CASCADE_PREVIEW_MS = 300;
+/** Stagger between slots in the opening “all cascade targets” passage glow ripple. */
+export const CASCADE_INITIAL_PASSAGE_RIPPLE_MS = 2;
+/** Grey pill compresses to the right (right edge fixed) before letters appear. */
+export const CASCADE_GREY_SQUASH_MS = 260;
+export const CASCADE_GREY_SQUASH_STEPS = 12;
+/** Quick green glow ramp on keyboard / lexicon chip before letters. */
+export const CASCADE_KEY_GLOW_STEP_MS = 36;
 /** Pause after a round locks so the word bank can ease before the next check. */
 export const CASCADE_BETWEEN_ROUNDS_MS = 220;
 /** Stagger between keyboard hide / passage reveal steps (letter-by-letter cascade). */

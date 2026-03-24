@@ -46,8 +46,11 @@ type PassageBodyProps = {
   onSelectSlot: (index: number) => void;
   bottomInset: number;
   onSlotAnchorRef?: (slotIndex: number, node: View | null) => void;
-  cascadePreviewSlots?: ReadonlySet<number> | null;
-  /** Keyboard cascade: per-slot count of leading graphemes to show while animating. */
+  /** 0–1 sage wash on empty-slot pill (cascade attract). */
+  cascadePillAttractBySlot?: ReadonlyMap<number, number> | null;
+  /** 0–1 grey pill squash to the right before letters (right edge fixed). */
+  cascadeGreySquashBySlot?: ReadonlyMap<number, number> | null;
+  /** Keyboard / bank cascade: per-slot count of leading graphemes to show while animating. */
   cascadeRevealBySlot?: ReadonlyMap<number, number> | null;
 };
 
@@ -60,7 +63,8 @@ export function PassageBody({
   onSelectSlot,
   bottomInset,
   onSlotAnchorRef,
-  cascadePreviewSlots = null,
+  cascadePillAttractBySlot = null,
+  cascadeGreySquashBySlot = null,
   cascadeRevealBySlot = null,
 }: PassageBodyProps) {
   const { width } = useWindowDimensions();
@@ -124,7 +128,8 @@ export function PassageBody({
                   showFocusRing={index === selectedSlotIndex}
                   cascadeRevealCharCount={cascadeRevealBySlot?.get(index)}
                   onSlotAnchorRef={onSlotAnchorRef}
-                  cascadePreview={!!cascadePreviewSlots?.has(index)}
+                  cascadePillAttractStrength={cascadePillAttractBySlot?.get(index) ?? 0}
+                  cascadeGreySquash={cascadeGreySquashBySlot?.get(index) ?? 0}
                   onSelectSlot={onSelectSlot}
                 />
               );
@@ -144,7 +149,8 @@ export function PassageBody({
                   showFocusRing={phraseGroupRing || index === selectedSlotIndex}
                   cascadeRevealCharCount={cascadeRevealBySlot?.get(index)}
                   onSlotAnchorRef={onSlotAnchorRef}
-                  cascadePreview={!!cascadePreviewSlots?.has(index)}
+                  cascadePillAttractStrength={cascadePillAttractBySlot?.get(index) ?? 0}
+                  cascadeGreySquash={cascadeGreySquashBySlot?.get(index) ?? 0}
                   onSelectSlot={onSelectSlot}
                 />
               );

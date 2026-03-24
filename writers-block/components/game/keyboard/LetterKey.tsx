@@ -34,6 +34,8 @@ type LetterKeyProps = {
    * (prefix + word + suffix). When `undefined`, use static layout (no per-char hide).
    */
   cascadeHideCharCount?: number;
+  /** 0–1 quick green rim / shadow on key before letters (decays as chars hide). */
+  cascadeKeyGlowStrength?: number;
   onLetterAnchorRef?: (node: View | null) => void;
 };
 
@@ -113,6 +115,7 @@ export function LetterKey({
   onLetterFocus,
   onLetterBlurCheckLeave,
   cascadeHideCharCount,
+  cascadeKeyGlowStrength = 0,
   onLetterAnchorRef,
 }: LetterKeyProps) {
   const { width: winW } = useWindowDimensions();
@@ -172,6 +175,7 @@ export function LetterKey({
         : {};
 
   const useCascadeChars = cascadeHideCharCount !== undefined;
+  const g = Math.max(0, Math.min(1, cascadeKeyGlowStrength));
 
   return (
     <View
@@ -187,6 +191,15 @@ export function LetterKey({
           styles.key,
           animStyle,
           isHighlighted && styles.keyHighlighted,
+          g > 0.02 && {
+            borderColor: GameChrome.cascadeKeyGlowBorder,
+            borderWidth: 1 + g * 1.5,
+            shadowColor: GameChrome.cascadeKeyGlowBorder,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.25 + g * 0.45,
+            shadowRadius: 5 + g * 6,
+            elevation: 4 + Math.round(g * 4),
+          },
           {
             minWidth: minKeyWidth,
             height: filledH,

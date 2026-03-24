@@ -20,6 +20,10 @@ type LexiconWordChipProps = {
   hideBodyForCascade?: boolean;
   /** Brief green preview right before this chip flies to the passage slot. */
   cascadePreview?: boolean;
+  /** Letter cascade from bank: hide this many leading graphemes of `word`. */
+  cascadeHideCharCount?: number;
+  /** 0–1 green rim during cascade attract. */
+  cascadeGlowStrength?: number;
 };
 
 export function LexiconWordChip({
@@ -31,29 +35,64 @@ export function LexiconWordChip({
   selected = false,
   hideBodyForCascade = false,
   cascadePreview = false,
+  cascadeHideCharCount,
+  cascadeGlowStrength = 0,
 }: LexiconWordChipProps) {
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  const glow = Math.max(0, Math.min(1, cascadeGlowStrength));
+  const useCascadeChars = cascadeHideCharCount !== undefined;
+  const hideN = cascadeHideCharCount ?? 0;
+  const graphemes = [...word];
 
   const chipVisual = [
     styles.chip,
     cascadePreview && styles.chipCascadePreview,
     selected && styles.chipSelected,
+    glow > 0.02 && {
+      borderColor: GameChrome.cascadeKeyGlowBorder,
+      borderWidth: 1 + glow * 1.5,
+      shadowColor: GameChrome.cascadeKeyGlowBorder,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.2 + glow * 0.4,
+      shadowRadius: 4 + glow * 5,
+      elevation: 3 + Math.round(glow * 4),
+    },
     animStyle,
   ];
 
   const inner = (
     <>
-      <Text
-        style={[
-          styles.word,
-          variant === 'phrase' && styles.wordPhrase,
-          cascadePreview && styles.wordCascadePreview,
-          hideBodyForCascade && styles.wordHidden,
-        ]}
-        numberOfLines={variant === 'phrase' ? 2 : 1}>
-        {word}
-      </Text>
+      {useCascadeChars ? (
+        <Text
+          style={[
+            styles.word,
+            variant === 'phrase' && styles.wordPhrase,
+            cascadePreview && styles.wordCascadePreview,
+            hideBodyForCascade && styles.wordHidden,
+          ]}
+          numberOfLines={variant === 'phrase' ? 2 : 1}>
+          {graphemes.map((ch, i) => (
+            <Text
+              key={`${i}-${ch}`}
+              style={[i < hideN && styles.wordCharHidden]}>
+              {ch}
+            </Text>
+          ))}
+        </Text>
+      ) : (
+        <Text
+          style={[
+            styles.word,
+            variant === 'phrase' && styles.wordPhrase,
+            cascadePreview && styles.wordCascadePreview,
+            hideBodyForCascade && styles.wordHidden,
+          ]}
+          numberOfLines={variant === 'phrase' ? 2 : 1}>
+          {word}
+        </Text>
+      )}
       <View style={[styles.badge, hideBodyForCascade && styles.badgeHidden]}>
         <Text style={styles.badgeText}>{remaining}</Text>
       </View>
@@ -121,6 +160,9 @@ const styles = StyleSheet.create({
   },
   wordCascadePreview: {
     color: GameChrome.cascadePreviewWord,
+  },
+  wordCharHidden: {
+    opacity: 0,
   },
   wordHidden: {
     opacity: 0,

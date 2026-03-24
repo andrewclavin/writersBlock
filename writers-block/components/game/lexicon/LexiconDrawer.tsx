@@ -40,6 +40,8 @@ type LexiconDrawerProps = {
   /** Hide chip label during cascade beat (matches `entryKey`). */
   collapseCascadeEntryKey?: string | null;
   cascadePreviewKeys?: ReadonlySet<string> | null;
+  cascadeHideCharByKey?: ReadonlyMap<string, number> | null;
+  cascadeGlowByKey?: ReadonlyMap<string, number> | null;
 };
 
 export function LexiconDrawer({
@@ -50,6 +52,8 @@ export function LexiconDrawer({
   registerCascadeAnchor,
   collapseCascadeEntryKey,
   cascadePreviewKeys,
+  cascadeHideCharByKey,
+  cascadeGlowByKey,
 }: LexiconDrawerProps) {
   const { height, width } = useWindowDimensions();
   const drawerWidth = Math.min(width * 0.88, 360);
@@ -299,6 +303,8 @@ export function LexiconDrawer({
                     registerCascadeAnchor={registerCascadeAnchor}
                     collapseCascadeEntryKey={collapseCascadeEntryKey}
                     cascadePreviewKeys={cascadePreviewKeys}
+                    cascadeHideCharByKey={cascadeHideCharByKey}
+                    cascadeGlowByKey={cascadeGlowByKey}
                   />
                 ))}
               </View>
