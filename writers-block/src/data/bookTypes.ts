@@ -6,6 +6,8 @@ export type ParsedBookWord = {
   index: number;
   raw: string;
   canonical: string;
+  /** Structural boundary immediately before this word (from parser). */
+  boundaryBefore?: 'paragraph' | 'section' | 'chapter' | 'part' | null;
 };
 
 export type BookJsonBundle = {

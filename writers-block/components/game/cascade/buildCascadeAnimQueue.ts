@@ -3,12 +3,14 @@ import type { CascadePlanUnit } from '@/src/game/selectionCascade';
 
 export type AnimCascadeUnit = {
   slotIndices: number[];
-  /** Text on the flying chip. */
+  /** Text on the flying chip (bank) or passage join (keyboard phrase). */
   displayLabel: string;
   kind: 'word' | 'phrase';
   source: 'keyboard' | 'bank';
   /** Letter key when `source === 'keyboard'`. */
   letter?: string;
+  /** Full string shown on that key (prefix + display + suffix) for letter-by-letter hide. */
+  keyboardRevealString?: string;
   /** Matches lexicon chip `word` prop (single or phrase string). */
   lexiconKey: string;
 };
@@ -20,8 +22,13 @@ function tokensAtSlots(
   return unit.slotIndices.map((i) => canonicalBySlot[i] ?? '');
 }
 
+function keyboardRevealStringFromCandidate(c: KeyboardLetterCandidate): string {
+  return `${c.phrasePrefix ?? ''}${c.displayWord ?? c.word}${c.phraseSuffix ?? ''}`;
+}
+
 /**
- * Whether this unit’s first token appears on the keyboard snapshot at the phrase span’s start slot.
+ * Whether this unit’s first slot matches a keyboard key (same index, word, and full phrase on key).
+ * If the key shows a longer phrase than this unit, it does not match (skip keyboard cascade).
  */
 function keyboardLetterForUnit(
   unit: CascadePlanUnit,
@@ -44,24 +51,36 @@ function keyboardLetterForUnit(
 }
 
 /**
- * Keyboard-sourced units first (keeping their cascade order), then word-bank units.
+ * Keyboard-sourced units first (same relative order as in the plan), then bank units.
  */
 export function buildAnimCascadeQueue(
   plan: CascadePlanUnit[],
-  _keyboardSnapshot: ReadonlyMap<string, KeyboardLetterCandidate>,
+  keyboardSnapshot: ReadonlyMap<string, KeyboardLetterCandidate>,
   canonicalBySlot: readonly string[]
 ): AnimCascadeUnit[] {
-  return plan.map((u) => {
+  const mapped: AnimCascadeUnit[] = plan.map((u) => {
     const displayLabel =
       u.kind === 'word'
         ? u.label
         : tokensAtSlots(u, canonicalBySlot).join(' ');
+    const letter = keyboardLetterForUnit(u, keyboardSnapshot, canonicalBySlot);
+    const source = letter ? ('keyboard' as const) : ('bank' as const);
+    const cand = letter ? keyboardSnapshot.get(letter) : undefined;
+    const keyboardRevealString =
+      source === 'keyboard' && cand ? keyboardRevealStringFromCandidate(cand) : undefined;
+
     return {
       slotIndices: u.slotIndices,
       displayLabel,
       kind: u.kind,
-      source: 'bank' as const,
+      source,
+      letter,
+      keyboardRevealString,
       lexiconKey: u.label,
     };
   });
+
+  const keyboard = mapped.filter((u) => u.source === 'keyboard');
+  const bank = mapped.filter((u) => u.source === 'bank');
+  return [...keyboard, ...bank];
 }

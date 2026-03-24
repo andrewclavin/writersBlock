@@ -26,19 +26,19 @@ type LetterKeyProps = {
   phraseSuffix?: string;
   wordIndex?: number;
   onWordSelect: (index: number, pressedWord: string) => void;
-  /** Web: keyboard / Tab — show selected key without submitting until Enter / full word + Space. */
   isHighlighted?: boolean;
   onLetterFocus?: (wordIndex: number, word: string) => void;
-  /** Web: when Tab leaves the keyboard region, parent clears highlight. */
   onLetterBlurCheckLeave?: () => void;
-  /** Selection-cascade: hide candidate word during beat (key chrome stays). */
-  hideWordBody?: boolean;
+  /**
+   * Selection-cascade: hide this many leading graphemes of the full key label
+   * (prefix + word + suffix). When `undefined`, use static layout (no per-char hide).
+   */
+  cascadeHideCharCount?: number;
   onLetterAnchorRef?: (node: View | null) => void;
 };
 
 const KEY_HORIZONTAL_PAD = 24;
 
-/** Generous first-pass width so we rarely clip before `onTextLayout` runs. */
 function estimateKeyWidth(word: string, fontSize: number): number {
   const letterSpacingExtra = 0.5 * Math.max(0, word.length - 1);
   const charEstimate = word.length * fontSize * 0.82;
@@ -49,6 +49,55 @@ function readLineWidth(data: TextLayoutEventData): number {
   const line = data.lines[0];
   if (line && typeof line.width === 'number') return line.width;
   return 0;
+}
+
+/** Style each grapheme index to match the original first/rest + phrase grey split. */
+function charStyleForIndex(
+  i: number,
+  prefixLen: number,
+  wordLen: number
+): typeof styles.keyPhraseContext | typeof styles.keyWordFirst | typeof styles.keyWordRest {
+  if (i < prefixLen) return styles.keyPhraseContext;
+  if (i === prefixLen) return styles.keyWordFirst;
+  if (i < prefixLen + wordLen) return styles.keyWordRest;
+  return styles.keyPhraseContext;
+}
+
+function KeyCascadeChars({
+  fullDisplay,
+  prefixLen,
+  wordLen,
+  hideCharCount,
+  fontSize,
+  phraseLinked,
+  onTextLayout,
+}: {
+  fullDisplay: string;
+  prefixLen: number;
+  wordLen: number;
+  hideCharCount: number;
+  fontSize: number;
+  phraseLinked: boolean;
+  onTextLayout: (data: TextLayoutEventData) => void;
+}) {
+  const graphemes = [...fullDisplay];
+  return (
+    <Text
+      style={[styles.keyWordLine, { fontSize }]}
+      numberOfLines={phraseLinked ? 2 : 1}
+      onTextLayout={(e) => onTextLayout(e.nativeEvent)}>
+      {graphemes.map((ch, i) => (
+        <Text
+          key={`${i}-${ch}`}
+          style={[
+            charStyleForIndex(i, prefixLen, wordLen),
+            i < hideCharCount && styles.keyCharHidden,
+          ]}>
+          {ch}
+        </Text>
+      ))}
+    </Text>
+  );
 }
 
 export function LetterKey({
@@ -63,7 +112,7 @@ export function LetterKey({
   isHighlighted,
   onLetterFocus,
   onLetterBlurCheckLeave,
-  hideWordBody = false,
+  cascadeHideCharCount,
   onLetterAnchorRef,
 }: LetterKeyProps) {
   const { width: winW } = useWindowDimensions();
@@ -81,6 +130,9 @@ export function LetterKey({
   const displayForWidth =
     hasWord && word ? `${phrasePrefix ?? ''}${displayWord ?? word}${phraseSuffix ?? ''}` : '';
   const phraseLinked = !!(phrasePrefix || phraseSuffix);
+  const prefixLen = phrasePrefix?.length ?? 0;
+  const shown = displayWord ?? word ?? '';
+  const wordLen = shown.length;
 
   useEffect(() => {
     if (!hasWord || !word) return;
@@ -102,7 +154,6 @@ export function LetterKey({
     );
   }
 
-  const shown = displayWord ?? word;
   const first = shown.charAt(0);
   const rest = shown.slice(1);
 
@@ -119,6 +170,8 @@ export function LetterKey({
       : Platform.OS === 'web'
         ? { tabIndex: -1 as const }
         : {};
+
+  const useCascadeChars = cascadeHideCharCount !== undefined;
 
   return (
     <View
@@ -148,20 +201,37 @@ export function LetterKey({
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           if (wordIndex !== undefined && word) onWordSelect(wordIndex, word);
         }}>
-        <Text
-          style={[styles.keyWordLine, { fontSize }, hideWordBody && styles.keyWordHidden]}
-          numberOfLines={phraseLinked ? 2 : 1}
-          onTextLayout={(e) => {
-            const w = readLineWidth(e.nativeEvent);
-            if (w <= 0) return;
-            const needed = Math.ceil(w) + KEY_HORIZONTAL_PAD;
-            setMinKeyWidth((prev) => (needed > prev ? needed : prev));
-          }}>
-          {phrasePrefix ? <Text style={styles.keyPhraseContext}>{phrasePrefix}</Text> : null}
-          <Text style={styles.keyWordFirst}>{first}</Text>
-          <Text style={styles.keyWordRest}>{rest}</Text>
-          {phraseSuffix ? <Text style={styles.keyPhraseContext}>{phraseSuffix}</Text> : null}
-        </Text>
+        {useCascadeChars ? (
+          <KeyCascadeChars
+            fullDisplay={displayForWidth}
+            prefixLen={prefixLen}
+            wordLen={wordLen}
+            hideCharCount={cascadeHideCharCount ?? 0}
+            fontSize={fontSize}
+            phraseLinked={phraseLinked}
+            onTextLayout={(e) => {
+              const w = readLineWidth(e);
+              if (w <= 0) return;
+              const needed = Math.ceil(w) + KEY_HORIZONTAL_PAD;
+              setMinKeyWidth((prev) => (needed > prev ? needed : prev));
+            }}
+          />
+        ) : (
+          <Text
+            style={[styles.keyWordLine, { fontSize }]}
+            numberOfLines={phraseLinked ? 2 : 1}
+            onTextLayout={(e) => {
+              const w = readLineWidth(e.nativeEvent);
+              if (w <= 0) return;
+              const needed = Math.ceil(w) + KEY_HORIZONTAL_PAD;
+              setMinKeyWidth((prev) => (needed > prev ? needed : prev));
+            }}>
+            {phrasePrefix ? <Text style={styles.keyPhraseContext}>{phrasePrefix}</Text> : null}
+            <Text style={styles.keyWordFirst}>{first}</Text>
+            <Text style={styles.keyWordRest}>{rest}</Text>
+            {phraseSuffix ? <Text style={styles.keyPhraseContext}>{phraseSuffix}</Text> : null}
+          </Text>
+        )}
       </AnimatedPressable>
     </View>
   );
@@ -216,7 +286,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     opacity: 0.85,
   },
-  keyWordHidden: {
+  keyCharHidden: {
     opacity: 0,
   },
 });

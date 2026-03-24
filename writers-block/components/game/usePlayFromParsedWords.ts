@@ -12,25 +12,32 @@ import type { ParsedBookWord } from '@/src/data/bookTypes';
 import { useAppDispatch, useAppSelector } from '@/src/state/hooks';
 import {
   applyLexiconPhraseMerge,
+  createDefaultBookSessionState,
   lockSlotIndices,
   recordAttempt,
+  replaceBookSession,
   resetBookSession,
   setActiveSlotIndex,
   setLastBookId,
 } from '@/src/state/session/sessionSlice';
-import type { BookId } from '@/src/state/session/types';
+import type { BookId, BookSessionState } from '@/src/state/session/types';
 import { store } from '@/src/state/store';
 import type { CascadePlanUnit } from '@/src/game/selectionCascade';
 import {
   CASCADE_BETWEEN_ROUNDS_MS,
   CASCADE_BETWEEN_UNITS_MS,
   CASCADE_FLIGHT_DURATION_MS,
+  CASCADE_KEYBOARD_BETWEEN_UNITS_MS,
+  CASCADE_KEYBOARD_CHAR_INTERVAL_MS,
   CASCADE_PREVIEW_MS,
   CASCADE_SOURCE_HIDE_BEAT_MS,
   computeGreedyCascadeRound,
 } from '@/src/game/selectionCascade';
 
-import { buildAnimCascadeQueue } from './cascade/buildCascadeAnimQueue';
+import {
+  buildAnimCascadeQueue,
+  type AnimCascadeUnit,
+} from './cascade/buildCascadeAnimQueue';
 import type { CascadeFlightRect } from './cascade/CascadeFlightOverlay';
 import { measureNodeInWindow } from './cascade/measureNode';
 import {
@@ -55,9 +62,36 @@ import {
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+function cloneBookSession(s: BookSessionState): BookSessionState {
+  return JSON.parse(JSON.stringify(s)) as BookSessionState;
+}
+
+/** How many leading graphemes to show per slot for a joined `slotIndices` string with spaces. */
+function slotRevealCountsFromGlobal(
+  slotIndices: readonly number[],
+  globalG: number,
+  displayTokens: readonly string[]
+): Map<number, number> {
+  const map = new Map<number, number>();
+  let g = globalG;
+  for (let s = 0; s < slotIndices.length; s++) {
+    const idx = slotIndices[s]!;
+    const w = displayTokens[idx] ?? '';
+    if (g <= 0) {
+      map.set(idx, 0);
+      continue;
+    }
+    const take = Math.min(g, w.length);
+    map.set(idx, take);
+    g -= take;
+    if (s < slotIndices.length - 1 && g > 0) {
+      g -= 1;
+    }
+  }
+  return map;
+}
+
 export type UsePlayFromParsedWordsOptions = {
-  /** Distance from screen bottom to keyboard top — improves cascade flight origin fallback. */
-  keyboardBottomOffset?: number;
   /** For cascade flight z-order (dip behind lexicon glass mid-path). */
   getLexiconDrawerOpen?: () => boolean;
 };
@@ -68,7 +102,6 @@ export function usePlayFromParsedWords(
   bookId: BookId,
   options?: UsePlayFromParsedWordsOptions
 ) {
-  const keyboardBottomOffset = options?.keyboardBottomOffset ?? 176;
   const getLexiconDrawerOpenRef = useRef(options?.getLexiconDrawerOpen);
   getLexiconDrawerOpenRef.current = options?.getLexiconDrawerOpen;
   const dispatch = useAppDispatch();
@@ -80,10 +113,20 @@ export function usePlayFromParsedWords(
   const cascadeGenRef = useRef(0);
   const flightIdRef = useRef(0);
   const flightResolveRef = useRef<(() => void) | null>(null);
+  /** Skip one auto-cascade run after dev undo/redo restore (avoid re-filling undon locks). */
+  const suppressNextCascadeRef = useRef(false);
+  const undoPastRef = useRef<BookSessionState[]>([]);
+  const undoFutureRef = useRef<BookSessionState[]>([]);
+  const [, setUndoRedoBump] = useState(0);
+  const bumpUndoRedoHistory = useCallback(() => setUndoRedoBump((n) => n + 1), []);
 
   const [cascadeVisualHold, setCascadeVisualHold] = useState<Set<number> | null>(null);
   const [cascadeEarlyReveal, setCascadeEarlyReveal] = useState<Set<number> | null>(null);
-  const [cascadeHideKeyboardLetter, setCascadeHideKeyboardLetter] = useState<string | null>(null);
+  const [cascadeHideKeyboard, setCascadeHideKeyboard] = useState<{
+    letter: string;
+    charCount: number;
+  } | null>(null);
+  const [cascadeRevealBySlot, setCascadeRevealBySlot] = useState<Map<number, number> | null>(null);
   const [collapseLexiconKey, setCollapseLexiconKey] = useState<string | null>(null);
   const [cascadePreviewSlots, setCascadePreviewSlots] = useState<Set<number> | null>(null);
   const [cascadePreviewLexiconKeys, setCascadePreviewLexiconKeys] = useState<Set<string> | null>(
@@ -118,18 +161,26 @@ export function usePlayFromParsedWords(
     setCascadeFlight(null);
   }, []);
 
-  const keyboardFallbackRect = useCallback((): CascadeFlightRect => {
-    const { width: W, height: H } = Dimensions.get('window');
-    const y = H - keyboardBottomOffset - 72;
-    return { x: W * 0.5 - 28, y, w: 56, h: 52 };
-  }, [keyboardBottomOffset]);
+  const clearCascadeAnimLocal = useCallback(() => {
+    cascadeGenRef.current += 1;
+    flightResolveRef.current?.();
+    flightResolveRef.current = null;
+    setCascadeFlight(null);
+    setCascadeVisualHold(null);
+    setCascadeEarlyReveal(null);
+    setCascadeHideKeyboard(null);
+    setCascadeRevealBySlot(null);
+    setCollapseLexiconKey(null);
+    setCascadePreviewSlots(null);
+    setCascadePreviewLexiconKeys(null);
+  }, []);
 
   const bankFallbackRect = useCallback((): CascadeFlightRect => {
     const { height: H } = Dimensions.get('window');
     return { x: 20, y: H * 0.38, w: 72, h: 44 };
   }, []);
 
-  const { displayTokens, wordInfos, wordCounts } = useMemo(
+  const { displayTokens, wordInfos, wordCounts, paragraphBreakIndices } = useMemo(
     () => buildWordModelFromParsedBook(bookWords),
     [bookWords]
   );
@@ -169,6 +220,51 @@ export function usePlayFromParsedWords(
     [bookId, canonicalBySlot, displayTokens, wordInfos]
   );
 
+  const runKeyboardCascadePhase = useCallback(
+    async (units: AnimCascadeUnit[], gen: number) => {
+      for (let uIdx = 0; uIdx < units.length; uIdx++) {
+        const unit = units[uIdx]!;
+        if (gen !== cascadeGenRef.current) return;
+        const letter = unit.letter;
+        if (!letter) continue;
+        const keyStr = unit.keyboardRevealString ?? unit.displayLabel;
+        const n = [...keyStr].length;
+        if (n === 0) continue;
+
+        const accel = Math.min(uIdx, 6);
+
+        for (let step = 0; step <= n; step++) {
+          if (gen !== cascadeGenRef.current) return;
+          const hideCount = Math.min(step + 1, n);
+          const revealG = Math.min(step, n);
+          setCascadeHideKeyboard({ letter, charCount: hideCount });
+          setCascadeRevealBySlot(
+            slotRevealCountsFromGlobal(unit.slotIndices, revealG, displayTokens)
+          );
+          await sleep(Math.max(CASCADE_KEYBOARD_CHAR_INTERVAL_MS - accel * 5, 25));
+        }
+
+        setCascadeHideKeyboard(null);
+        setCascadeRevealBySlot(null);
+
+        setCascadeEarlyReveal((prev) => {
+          const next = new Set(prev ?? []);
+          for (const si of unit.slotIndices) next.add(si);
+          return next;
+        });
+        setCascadeVisualHold((prev) => {
+          if (!prev) return null;
+          const next = new Set(prev);
+          for (const si of unit.slotIndices) next.delete(si);
+          return next.size > 0 ? next : null;
+        });
+
+        await sleep(Math.max(CASCADE_KEYBOARD_BETWEEN_UNITS_MS - accel * 15, 60));
+      }
+    },
+    [displayTokens]
+  );
+
   const runSingleRoundCascadeFlights = useCallback(
     async (
       plan: CascadePlanUnit[],
@@ -181,43 +277,33 @@ export function usePlayFromParsedWords(
       await new Promise<void>((r) => requestAnimationFrame(() => r()));
 
       const queue = buildAnimCascadeQueue(plan, keyboardSnapshot, canonicalBySlot);
+      const keyboardUnits = queue.filter((u) => u.source === 'keyboard');
+      const bankUnits = queue.filter((u) => u.source === 'bank');
 
       try {
-        for (let idx = 0; idx < queue.length; idx++) {
-          const unit = queue[idx]!;
+        await runKeyboardCascadePhase(keyboardUnits, gen);
+        if (gen !== cascadeGenRef.current) return;
+
+        for (let idx = 0; idx < bankUnits.length; idx++) {
+          const unit = bankUnits[idx]!;
           if (gen !== cascadeGenRef.current) return;
 
           const accel = Math.min(idx, 6);
 
-          if (unit.source === 'bank') {
-            setCascadePreviewSlots(new Set(unit.slotIndices));
-            setCascadePreviewLexiconKeys(new Set([unit.lexiconKey]));
-            await sleep(Math.max(CASCADE_PREVIEW_MS - accel * 30, 80));
-            if (gen !== cascadeGenRef.current) return;
-            setCascadePreviewSlots(null);
-            setCascadePreviewLexiconKeys(null);
-          }
+          setCascadePreviewSlots(new Set(unit.slotIndices));
+          setCascadePreviewLexiconKeys(new Set([unit.lexiconKey]));
+          await sleep(Math.max(CASCADE_PREVIEW_MS - accel * 30, 80));
+          if (gen !== cascadeGenRef.current) return;
+          setCascadePreviewSlots(null);
+          setCascadePreviewLexiconKeys(null);
 
-          setCascadeHideKeyboardLetter(null);
-          setCollapseLexiconKey(null);
-
-          if (unit.source === 'keyboard' && unit.letter) {
-            setCascadeHideKeyboardLetter(unit.letter);
-          } else {
-            setCollapseLexiconKey(unit.lexiconKey);
-          }
+          setCascadeHideKeyboard(null);
+          setCollapseLexiconKey(unit.lexiconKey);
           await sleep(Math.max(CASCADE_SOURCE_HIDE_BEAT_MS - accel * 20, 50));
           if (gen !== cascadeGenRef.current) return;
 
-          const fromNode =
-            unit.source === 'keyboard' && unit.letter
-              ? letterAnchorRef.current.get(unit.letter)
-              : lexiconAnchorRef.current.get(unit.lexiconKey);
-
-          const from = await measureNodeInWindow(
-            fromNode ?? null,
-            unit.source === 'keyboard' ? keyboardFallbackRect() : bankFallbackRect()
-          );
+          const fromNode = lexiconAnchorRef.current.get(unit.lexiconKey);
+          const from = await measureNodeInWindow(fromNode ?? null, bankFallbackRect());
 
           const targetSlot = unit.slotIndices[0]!;
           const slotNode = slotAnchorRef.current.get(targetSlot);
@@ -229,12 +315,11 @@ export function usePlayFromParsedWords(
             h: 22,
           });
 
-          setCascadeHideKeyboardLetter(null);
           setCollapseLexiconKey(null);
 
           flightIdRef.current += 1;
           const id = flightIdRef.current;
-          const dip = dipBehindDrawer && unit.source === 'bank';
+          const dip = dipBehindDrawer;
 
           await new Promise<void>((resolve) => {
             flightResolveRef.current = resolve;
@@ -249,7 +334,6 @@ export function usePlayFromParsedWords(
 
           if (gen !== cascadeGenRef.current) return;
 
-          // Reveal word in passage immediately after landing
           setCascadeEarlyReveal((prev) => {
             const next = new Set(prev ?? []);
             for (const si of unit.slotIndices) next.add(si);
@@ -269,11 +353,12 @@ export function usePlayFromParsedWords(
         setCascadePreviewLexiconKeys(null);
         setCascadeVisualHold(null);
         setCascadeEarlyReveal(null);
-        setCascadeHideKeyboardLetter(null);
+        setCascadeHideKeyboard(null);
+        setCascadeRevealBySlot(null);
         setCollapseLexiconKey(null);
       }
     },
-    [bankFallbackRect, canonicalBySlot, keyboardFallbackRect]
+    [bankFallbackRect, canonicalBySlot, runKeyboardCascadePhase]
   );
 
   const runGreedyCascadeMultiRound = useCallback(
@@ -287,6 +372,9 @@ export function usePlayFromParsedWords(
       let work = new Set(initialPlaced);
       let anyRound = false;
       const drawerOpen = getLexiconDrawerOpenRef.current?.() ?? false;
+      const snapshotBeforeCascade = cloneBookSession(
+        store.getState().session.byBookId[bookId] ?? createDefaultBookSessionState()
+      );
 
       while (gen === cascadeGenRef.current) {
         const s = store.getState().session.byBookId[bookId];
@@ -328,6 +416,13 @@ export function usePlayFromParsedWords(
         await sleep(CASCADE_BETWEEN_ROUNDS_MS);
       }
 
+      const cascadePlacedNewWords = [...work].some((si) => !initialPlaced.has(si));
+
+      if (anyRound && cascadePlacedNewWords) {
+        undoPastRef.current = [...undoPastRef.current, snapshotBeforeCascade];
+        bumpUndoRedoHistory();
+      }
+
       if (anyRound) {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         const s2 = store.getState().session.byBookId[bookId];
@@ -350,6 +445,7 @@ export function usePlayFromParsedWords(
     [
       bookId,
       buildKeyboardSnapshot,
+      bumpUndoRedoHistory,
       canonicalBySlot,
       dispatch,
       runSingleRoundCascadeFlights,
@@ -463,6 +559,10 @@ export function usePlayFromParsedWords(
 
   useEffect(() => {
     if (slotCount <= 0) return;
+    if (suppressNextCascadeRef.current) {
+      suppressNextCascadeRef.current = false;
+      return;
+    }
     const s = store.getState().session.byBookId[bookId];
     const keys = s?.lockedSlotIndices ?? [];
     const currentPlaced = new Set(
@@ -550,6 +650,10 @@ export function usePlayFromParsedWords(
 
       if (!canTake(resolved.leftKey) || !canTake(resolved.rightKey)) return false;
 
+      undoPastRef.current = [];
+      undoFutureRef.current = [];
+      bumpUndoRedoHistory();
+
       const phraseTokens = resolved.mergedPhrase.split(/\s+/);
       const allOccurrences = findAllPhraseOccurrenceSlots(canonicalBySlot, phraseTokens);
       const totalOccurrences = allOccurrences.length;
@@ -631,6 +735,7 @@ export function usePlayFromParsedWords(
     [
       bookCanonicals,
       bookId,
+      bumpUndoRedoHistory,
       canonicalBySlot,
       dispatch,
       placedWordCounts,
@@ -656,11 +761,17 @@ export function usePlayFromParsedWords(
       if (currentPlaced.has(selected)) return;
       const expected = wordInfos.find((w) => w.originalIndex === selected)?.word;
       if (!expected || pressedWord !== expected) {
+        undoFutureRef.current = [];
+        bumpUndoRedoHistory();
         dispatch(
           recordAttempt({ bookId, slotIndex: selected, guessRaw: pressedWord })
         );
         return;
       }
+
+      const sessionBeforeMove = cloneBookSession(
+        store.getState().session.byBookId[bookId] ?? createDefaultBookSessionState()
+      );
 
       const manualPhrases = s?.lexiconManualPhraseCounts ?? {};
       const effectivePhrases = computeEffectivePhraseBankCounts(
@@ -715,34 +826,64 @@ export function usePlayFromParsedWords(
       }
       dispatch(setActiveSlotIndex({ bookId, activeSlotIndex: nextSel }));
 
+      undoPastRef.current = [...undoPastRef.current, sessionBeforeMove];
+      undoFutureRef.current = [];
+      bumpUndoRedoHistory();
+
       if (phraseWindow && phraseWindow.length > 1 && plan0.length === 0) {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     },
-    [bookId, canonicalBySlot, dispatch, slotCount, wordCounts, wordInfos]
+    [bookId, bumpUndoRedoHistory, canonicalBySlot, dispatch, slotCount, wordCounts, wordInfos]
   );
 
   const selectSlot = useCallback(
     (index: number) => {
       if (index < 0 || index >= slotCount) return;
+      undoFutureRef.current = [];
+      bumpUndoRedoHistory();
       dispatch(setActiveSlotIndex({ bookId, activeSlotIndex: index }));
     },
-    [bookId, dispatch, slotCount]
+    [bookId, bumpUndoRedoHistory, dispatch, slotCount]
   );
 
   const handleReset = useCallback(() => {
-    cascadeGenRef.current += 1;
-    flightResolveRef.current?.();
-    flightResolveRef.current = null;
-    setCascadeFlight(null);
-    setCascadeVisualHold(null);
-    setCascadeEarlyReveal(null);
-    setCascadeHideKeyboardLetter(null);
-    setCollapseLexiconKey(null);
-    setCascadePreviewSlots(null);
-    setCascadePreviewLexiconKeys(null);
+    undoPastRef.current = [];
+    undoFutureRef.current = [];
+    bumpUndoRedoHistory();
+    clearCascadeAnimLocal();
     dispatch(resetBookSession({ bookId }));
-  }, [bookId, dispatch]);
+  }, [bookId, bumpUndoRedoHistory, clearCascadeAnimLocal, dispatch]);
+
+  const devUndo = useCallback(() => {
+    const past = undoPastRef.current;
+    if (past.length === 0) return;
+    const target = past[past.length - 1]!;
+    const current = cloneBookSession(
+      store.getState().session.byBookId[bookId] ?? createDefaultBookSessionState()
+    );
+    undoPastRef.current = past.slice(0, -1);
+    undoFutureRef.current = [...undoFutureRef.current, current];
+    bumpUndoRedoHistory();
+    suppressNextCascadeRef.current = true;
+    clearCascadeAnimLocal();
+    dispatch(replaceBookSession({ bookId, bookSession: cloneBookSession(target) }));
+  }, [bookId, bumpUndoRedoHistory, clearCascadeAnimLocal, dispatch]);
+
+  const devRedo = useCallback(() => {
+    const fut = undoFutureRef.current;
+    if (fut.length === 0) return;
+    const target = fut[fut.length - 1]!;
+    const current = cloneBookSession(
+      store.getState().session.byBookId[bookId] ?? createDefaultBookSessionState()
+    );
+    undoFutureRef.current = fut.slice(0, -1);
+    undoPastRef.current = [...undoPastRef.current, current];
+    bumpUndoRedoHistory();
+    suppressNextCascadeRef.current = true;
+    clearCascadeAnimLocal();
+    dispatch(replaceBookSession({ bookId, bookSession: cloneBookSession(target) }));
+  }, [bookId, bumpUndoRedoHistory, clearCascadeAnimLocal, dispatch]);
 
   const totalActualWords = wordInfos.length;
   const placedActualWords = wordInfos.filter((info) => placedWords.has(info.originalIndex)).length;
@@ -752,6 +893,7 @@ export function usePlayFromParsedWords(
     words: displayTokens,
     wordInfos,
     wordCounts,
+    paragraphBreakIndices,
     nextWordsByLetter,
     activePhraseSpan,
     placedWordCounts,
@@ -770,12 +912,17 @@ export function usePlayFromParsedWords(
     registerLetterCascadeAnchor,
     registerSlotCascadeAnchor,
     registerLexiconCascadeAnchor,
-    cascadeHideKeyboardLetter,
+    cascadeHideKeyboard,
+    cascadeRevealBySlot,
     collapseLexiconKey,
     cascadeFlight,
     onCascadeFlightFinished,
     cascadeFlightDurationMs: CASCADE_FLIGHT_DURATION_MS,
     cascadePreviewSlots,
     cascadePreviewLexiconKeys,
+    canDevUndo: undoPastRef.current.length > 0,
+    canDevRedo: undoFutureRef.current.length > 0,
+    devUndo,
+    devRedo,
   };
 }

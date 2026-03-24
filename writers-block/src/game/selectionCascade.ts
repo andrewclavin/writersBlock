@@ -10,6 +10,10 @@ export const CASCADE_FLIGHT_DURATION_MS = 400;
 export const CASCADE_PREVIEW_MS = 300;
 /** Pause after a round locks so the word bank can ease before the next check. */
 export const CASCADE_BETWEEN_ROUNDS_MS = 220;
+/** Stagger between keyboard hide / passage reveal steps (letter-by-letter cascade). */
+export const CASCADE_KEYBOARD_CHAR_INTERVAL_MS = 40;
+/** Pause after a keyboard-sourced unit finishes before the next unit. */
+export const CASCADE_KEYBOARD_BETWEEN_UNITS_MS = 120;
 
 export type SelectionBankUnit =
   | { kind: 'word'; sortKey: string }

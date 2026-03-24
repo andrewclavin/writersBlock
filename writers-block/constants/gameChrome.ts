@@ -1,4 +1,7 @@
-/** Colors / motion hints aligned with `Wbwireframes` (TextDisplay, AlphabetSelector, WordItinerary, GameHeader). */
+/**
+ * Colors / motion hints aligned with `Wbwireframes` (TextDisplay, AlphabetSelector, WordItinerary, GameHeader).
+ * Passage focus ring metrics live in `passageFocusChrome.ts` (uses `activeRing` here).
+ */
 export const GameChrome = {
   passageText: '#111827',
   passageMuted: '#9CA3AF',

@@ -9,9 +9,22 @@ type PlaySessionMenuProps = {
   top: number;
   right: number;
   onClearProgress: () => void;
+  /** Dev: session snapshot undo (move vs cascade are separate steps). */
+  canDevUndo?: boolean;
+  canDevRedo?: boolean;
+  onDevUndo?: () => void;
+  onDevRedo?: () => void;
 };
 
-export function PlaySessionMenu({ top, right, onClearProgress }: PlaySessionMenuProps) {
+export function PlaySessionMenu({
+  top,
+  right,
+  onClearProgress,
+  canDevUndo = false,
+  canDevRedo = false,
+  onDevUndo,
+  onDevRedo,
+}: PlaySessionMenuProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -46,6 +59,49 @@ export function PlaySessionMenu({ top, right, onClearProgress }: PlaySessionMenu
                 <Ionicons name="paper-plane-outline" size={20} color="#374151" />
                 <Text style={styles.rowLabel}>Explore</Text>
               </Pressable>
+
+              {onDevUndo ? (
+                <>
+                  <View style={styles.divider} />
+                  <Text style={styles.sheetTitle}>Dev</Text>
+                  <Pressable
+                    style={styles.row}
+                    disabled={!canDevUndo}
+                    onPress={() => {
+                      if (!canDevUndo || !onDevUndo) return;
+                      close();
+                      onDevUndo();
+                    }}>
+                    <Ionicons
+                      name="arrow-undo-outline"
+                      size={20}
+                      color={canDevUndo ? '#374151' : '#D1D5DB'}
+                    />
+                    <Text
+                      style={[styles.rowLabel, !canDevUndo && styles.rowLabelDisabled]}>
+                      Undo (move / cascade)
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.row}
+                    disabled={!canDevRedo}
+                    onPress={() => {
+                      if (!canDevRedo || !onDevRedo) return;
+                      close();
+                      onDevRedo();
+                    }}>
+                    <Ionicons
+                      name="arrow-redo-outline"
+                      size={20}
+                      color={canDevRedo ? '#374151' : '#D1D5DB'}
+                    />
+                    <Text
+                      style={[styles.rowLabel, !canDevRedo && styles.rowLabelDisabled]}>
+                      Redo
+                    </Text>
+                  </Pressable>
+                </>
+              ) : null}
 
               <View style={styles.divider} />
 
@@ -127,6 +183,9 @@ const styles = StyleSheet.create({
   },
   destructiveLabel: {
     color: '#B45309',
+  },
+  rowLabelDisabled: {
+    color: '#D1D5DB',
   },
   divider: {
     height: StyleSheet.hairlineWidth,

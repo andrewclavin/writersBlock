@@ -64,7 +64,13 @@ export function buildWordModelFromParsedBook(bookWords: ParsedBookWord[]) {
   sorted.forEach((w) => {
     displayTokens[w.index] = w.raw;
   });
-  return { wordInfos, wordCounts, displayTokens };
+
+  const paragraphBreakIndices = new Set<number>();
+  for (const w of sorted) {
+    if (w.boundaryBefore === 'paragraph') paragraphBreakIndices.add(w.index);
+  }
+
+  return { wordInfos, wordCounts, displayTokens, paragraphBreakIndices };
 }
 
 export type KeyboardLetterCandidate = {

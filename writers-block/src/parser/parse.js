@@ -87,6 +87,7 @@ function parseToWords(rawText) {
   let index = 0;
   let chapterIndex = 0;
   let paragraphIndex = 0;
+  let needsParagraphBoundary = false;
 
   const lines = rawText.split(/\r?\n/);
 
@@ -94,8 +95,8 @@ function parseToWords(rawText) {
     const trimmed = line.trim();
 
     if (!trimmed) {
-      // New paragraph boundary.
       paragraphIndex += 1;
+      needsParagraphBoundary = true;
       continue;
     }
 
@@ -119,10 +120,11 @@ function parseToWords(rawText) {
         hasHyphen,
         chapterIndex,
         paragraphIndex,
-        boundaryBefore: null,
+        boundaryBefore: needsParagraphBoundary && index > 0 ? "paragraph" : null,
         sectionPath: [],
       };
 
+      needsParagraphBoundary = false;
       words.push(word);
       index += 1;
     }

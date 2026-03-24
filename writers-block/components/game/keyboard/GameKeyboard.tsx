@@ -25,7 +25,8 @@ type GameKeyboardProps = {
   onLetterFocusHighlight?: (wordIndex: number, word: string) => void;
   /** Web: clear typing highlight when focus leaves all letter keys. */
   onClearLetterHighlight?: () => void;
-  cascadeHideLetter?: string | null;
+  /** Letter-by-letter cascade: hide this many leading graphemes on the matching key. */
+  cascadeHideKeyboard?: { letter: string; charCount: number } | null;
   registerLetterCascadeAnchor?: (letter: string, node: View | null) => void;
 };
 
@@ -38,7 +39,7 @@ export function GameKeyboard({
   highlightedCandidateWord = null,
   onLetterFocusHighlight,
   onClearLetterHighlight,
-  cascadeHideLetter = null,
+  cascadeHideKeyboard = null,
   registerLetterCascadeAnchor,
 }: GameKeyboardProps) {
   const onLetterBlurCheckLeave = useCallback(() => {
@@ -85,7 +86,11 @@ export function GameKeyboard({
                 }
                 onLetterFocus={onLetterFocusHighlight}
                 onLetterBlurCheckLeave={onLetterBlurCheckLeave}
-                hideWordBody={cascadeHideLetter === letter}
+                cascadeHideCharCount={
+                  cascadeHideKeyboard?.letter === letter
+                    ? cascadeHideKeyboard.charCount
+                    : undefined
+                }
                 onLetterAnchorRef={(node) => registerLetterCascadeAnchor?.(letter, node)}
               />
             );

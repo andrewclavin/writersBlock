@@ -53,7 +53,6 @@ function PlayLoaded({ bookId, words }: { bookId: string; words: ParsedBookWord[]
   const lexiconOpenRef = useRef(lexiconDrawerOpen);
   lexiconOpenRef.current = lexiconDrawerOpen;
   const session = usePlayFromParsedWords(words, bookId, {
-    keyboardBottomOffset: bottomSafe + FOOTER_CHROME,
     getLexiconDrawerOpen: () => lexiconOpenRef.current,
   });
   const passageBottom =
@@ -84,8 +83,10 @@ function PlayLoaded({ bookId, words }: { bookId: string; words: ParsedBookWord[]
         placedWords={session.passagePlacedWords}
         selectedSlotIndex={session.selectedSlotIndex}
         activePhraseSpan={session.activePhraseSpan}
+        paragraphBreakIndices={session.paragraphBreakIndices}
         onSlotAnchorRef={session.registerSlotCascadeAnchor}
         cascadePreviewSlots={session.cascadePreviewSlots}
+        cascadeRevealBySlot={session.cascadeRevealBySlot}
         onSelectSlot={onSelectPassageSlot}
         bottomInset={passageBottom}
       />
@@ -107,7 +108,7 @@ function PlayLoaded({ bookId, words }: { bookId: string; words: ParsedBookWord[]
         highlightedCandidateWord={Platform.OS === 'web' ? (highlight?.word ?? null) : null}
         onLetterFocusHighlight={Platform.OS === 'web' ? setHighlightFromLetterFocus : undefined}
         onClearLetterHighlight={Platform.OS === 'web' ? clearHighlight : undefined}
-        cascadeHideLetter={session.cascadeHideKeyboardLetter}
+        cascadeHideKeyboard={session.cascadeHideKeyboard}
         registerLetterCascadeAnchor={session.registerLetterCascadeAnchor}
       />
       <CascadeFlightOverlay
@@ -125,6 +126,10 @@ function PlayLoaded({ bookId, words }: { bookId: string; words: ParsedBookWord[]
       />
       <PlaySessionMenu
         onClearProgress={session.handleReset}
+        canDevUndo={session.canDevUndo}
+        canDevRedo={session.canDevRedo}
+        onDevUndo={session.devUndo}
+        onDevRedo={session.devRedo}
         top={insets.top + 6}
         right={insets.right + 10}
       />

@@ -1,18 +1,20 @@
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { GameChrome } from '@/constants/gameChrome';
+import { computePillFrame } from '@/constants/passageFocusChrome';
+
+import { PassageFocusRingOverlay } from './PassageFocusRingOverlay';
 
 type PassageWordProps = {
   word: string;
   slotIndex: number;
   isPlaced: boolean;
-  /** Active slot: keyboard + placement target; any slot, including already placed. */
   isSelected: boolean;
-  /** When a parent phrase group draws the blue ring, hide the per-slot ring. */
-  suppressActiveRing?: boolean;
+  showFocusRing?: boolean;
   onSlotAnchorRef?: (slotIndex: number, node: View | null) => void;
-  /** Lexicon-sourced cascade: brief green on this slot + matching chip only. */
   cascadePreview?: boolean;
+  /** Keyboard cascade: reveal this many leading graphemes (rest stay transparent). */
+  cascadeRevealCharCount?: number;
   onSelectSlot: (index: number) => void;
 };
 
@@ -21,49 +23,61 @@ export function PassageWord({
   slotIndex,
   isPlaced,
   isSelected,
-  suppressActiveRing = false,
+  showFocusRing = false,
   onSlotAnchorRef,
   cascadePreview = false,
+  cascadeRevealCharCount,
   onSelectSlot,
 }: PassageWordProps) {
   const { width: winW } = useWindowDimensions();
   const fontSize = winW >= 768 ? 18 : winW >= 640 ? 17 : 16;
   const lineHeight = Math.round(fontSize * 1.65);
+  const pill = computePillFrame(fontSize, lineHeight);
 
-  /** Wireframe: ring only on the current empty slot (`isCurrent && !isPlaced`). */
-  const showActiveRing = isSelected && !isPlaced && !suppressActiveRing;
-  const ringStyle = showActiveRing ? styles.slotSelected : null;
-  const offsetWrap = showActiveRing ? styles.ringOffsetWrap : null;
+  const usePartialReveal =
+    !isPlaced && cascadeRevealCharCount !== undefined && cascadeRevealCharCount > 0;
+  const graphemes = [...word];
+  const revealN = Math.min(cascadeRevealCharCount ?? 0, graphemes.length);
 
   return (
     <View
       ref={(n) => onSlotAnchorRef?.(slotIndex, n)}
       collapsable={false}
       style={styles.wrap}>
-      <View style={offsetWrap}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Word ${slotIndex + 1}`}
-          accessibilityState={{ selected: isSelected }}
-          hitSlop={4}
-          onPress={() => onSelectSlot(slotIndex)}
-          onFocus={() => onSelectSlot(slotIndex)}
-          style={({ pressed }) => [styles.pressable, pressed && styles.pressablePressed]}>
-          <View style={[styles.slot, ringStyle]}>
-            {!isPlaced && (
-              <View
-                style={[
-                  styles.pill,
-                  cascadePreview && styles.pillCascadePreview,
-                  {
-                    top: fontSize * 0.2,
-                    bottom: fontSize * 0.15,
-                    left: fontSize * 0.08,
-                    right: fontSize * 0.08,
-                  },
-                ]}
-              />
-            )}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Word ${slotIndex + 1}`}
+        accessibilityState={{ selected: isSelected }}
+        hitSlop={4}
+        onPress={() => onSelectSlot(slotIndex)}
+        onFocus={() => onSelectSlot(slotIndex)}
+        style={({ pressed }) => [styles.pressable, pressed && styles.pressablePressed]}>
+        <View style={styles.slot}>
+          {!isPlaced && (
+            <View
+              style={[
+                styles.pill,
+                cascadePreview && styles.pillCascadePreview,
+                {
+                  bottom: pill.bottom,
+                  height: pill.height,
+                  left: pill.insetH,
+                  right: pill.insetH,
+                },
+              ]}
+            />
+          )}
+          {usePartialReveal ? (
+            <Text style={[styles.word, { fontSize, lineHeight }]}>
+              {graphemes.map((ch, i) => (
+                <Text
+                  key={`${slotIndex}-${i}-${ch}`}
+                  style={i < revealN ? styles.word : styles.wordConcealed}>
+                  {ch}
+                </Text>
+              ))}
+            </Text>
+          ) : (
             <Text
               style={[
                 styles.word,
@@ -72,9 +86,13 @@ export function PassageWord({
               ]}>
               {word}
             </Text>
-          </View>
-        </Pressable>
-      </View>
+          )}
+          <PassageFocusRingOverlay
+            visible={showFocusRing && !isPlaced}
+            pill={pill}
+          />
+        </View>
+      </Pressable>
     </View>
   );
 }
@@ -83,12 +101,6 @@ const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginRight: 6,
-  },
-  ringOffsetWrap: {
-    padding: 1,
-    borderRadius: 4,
-    backgroundColor: GameChrome.ringOffsetBackground,
   },
   pressable: {
     borderRadius: 3,
@@ -99,11 +111,7 @@ const styles = StyleSheet.create({
   slot: {
     position: 'relative',
     borderRadius: 3,
-    overflow: 'hidden',
-  },
-  slotSelected: {
-    borderWidth: 2,
-    borderColor: GameChrome.activeRing,
+    overflow: 'visible',
   },
   pill: {
     position: 'absolute',

@@ -2,7 +2,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 import type { BookId, BookSessionState, SessionState } from './types';
 
-function createDefaultBookSessionState(): BookSessionState {
+export function createDefaultBookSessionState(): BookSessionState {
   return {
     lockedContextSignature: null,
     activeSlotIndex: null,
@@ -37,6 +37,15 @@ export const sessionSlice = createSlice({
     resetBookSession(state, action: PayloadAction<{ bookId: BookId }>) {
       const { bookId } = action.payload;
       state.byBookId[bookId] = createDefaultBookSessionState();
+    },
+
+    /** Dev / undo: replace persisted book session in one shot (deep clone recommended before dispatch). */
+    replaceBookSession(
+      state,
+      action: PayloadAction<{ bookId: BookId; bookSession: BookSessionState }>
+    ) {
+      const { bookId, bookSession } = action.payload;
+      state.byBookId[bookId] = bookSession;
     },
 
     setLockedContextSignature(
@@ -130,6 +139,7 @@ export const sessionSlice = createSlice({
 export const {
   setLastBookId,
   resetBookSession,
+  replaceBookSession,
   setLockedContextSignature,
   setActiveSlotIndex,
   setWordBankPhraseDrafts,

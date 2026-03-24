@@ -1,7 +1,10 @@
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { GameChrome } from '@/constants/gameChrome';
+import {
+  computePillFrame,
+  passageFocusPhraseRingStyle,
+} from '@/constants/passageFocusChrome';
 
 import { PassageWord } from './PassageWord';
 
@@ -9,12 +12,20 @@ type PhraseSpan = { start: number; length: number };
 
 type PassageSegment =
   | { kind: 'single'; index: number }
-  | { kind: 'phrase'; start: number; length: number };
+  | { kind: 'phrase'; start: number; length: number }
+  | { kind: 'paragraphBreak' };
 
-function buildPassageSegments(wordCount: number, span: PhraseSpan | null): PassageSegment[] {
+function buildPassageSegments(
+  wordCount: number,
+  span: PhraseSpan | null,
+  paragraphBreaks?: ReadonlySet<number>
+): PassageSegment[] {
   const out: PassageSegment[] = [];
   let i = 0;
   while (i < wordCount) {
+    if (paragraphBreaks?.has(i)) {
+      out.push({ kind: 'paragraphBreak' });
+    }
     if (span && i === span.start && span.length > 1) {
       out.push({ kind: 'phrase', start: span.start, length: span.length });
       i += span.length;
@@ -30,13 +41,14 @@ type PassageBodyProps = {
   words: string[];
   placedWords: Set<number>;
   selectedSlotIndex: number;
-  /** Multi-slot highlight when filling a lexicon-linked phrase. */
   activePhraseSpan?: PhraseSpan | null;
+  paragraphBreakIndices?: ReadonlySet<number>;
   onSelectSlot: (index: number) => void;
   bottomInset: number;
-  /** Passage layout measurement for cascade flights (slot index → view). */
   onSlotAnchorRef?: (slotIndex: number, node: View | null) => void;
   cascadePreviewSlots?: ReadonlySet<number> | null;
+  /** Keyboard cascade: per-slot count of leading graphemes to show while animating. */
+  cascadeRevealBySlot?: ReadonlyMap<number, number> | null;
 };
 
 export function PassageBody({
@@ -44,19 +56,30 @@ export function PassageBody({
   placedWords,
   selectedSlotIndex,
   activePhraseSpan = null,
+  paragraphBreakIndices,
   onSelectSlot,
   bottomInset,
   onSlotAnchorRef,
   cascadePreviewSlots = null,
+  cascadeRevealBySlot = null,
 }: PassageBodyProps) {
   const { width } = useWindowDimensions();
   const padH =
     width >= 1280 ? 128 : width >= 1024 ? 96 : width >= 768 ? 64 : width >= 640 ? 48 : 32;
   const padV = width >= 768 ? 96 : width >= 640 ? 80 : 64;
+  const fontSize = width >= 768 ? 18 : width >= 640 ? 17 : 16;
+  const lineHeight = Math.round(fontSize * 1.65);
+  const indentWidth = fontSize * 1.8;
+
+  const pill = useMemo(() => computePillFrame(fontSize, lineHeight), [fontSize, lineHeight]);
+  const phraseRingStyle = useMemo(
+    () => passageFocusPhraseRingStyle(pill, lineHeight),
+    [pill, lineHeight]
+  );
 
   const segments = useMemo(
-    () => buildPassageSegments(words.length, activePhraseSpan),
-    [activePhraseSpan, words.length]
+    () => buildPassageSegments(words.length, activePhraseSpan, paragraphBreakIndices),
+    [activePhraseSpan, paragraphBreakIndices, words.length]
   );
 
   const phraseGroupRing = useMemo(() => {
@@ -77,7 +100,16 @@ export function PassageBody({
       showsVerticalScrollIndicator={false}>
       <View style={styles.inner}>
         <View style={styles.flow}>
-          {segments.map((seg) => {
+          {segments.map((seg, segIdx) => {
+            if (seg.kind === 'paragraphBreak') {
+              return (
+                <React.Fragment key={`pbreak-${segIdx}`}>
+                  <View style={styles.paragraphBreak} />
+                  <View style={{ width: indentWidth }} />
+                </React.Fragment>
+              );
+            }
+
             if (seg.kind === 'single') {
               const index = seg.index;
               const word = words[index] ?? '\u00A0';
@@ -89,6 +121,8 @@ export function PassageBody({
                   slotIndex={index}
                   isPlaced={isPlaced}
                   isSelected={index === selectedSlotIndex}
+                  showFocusRing={index === selectedSlotIndex}
+                  cascadeRevealCharCount={cascadeRevealBySlot?.get(index)}
                   onSlotAnchorRef={onSlotAnchorRef}
                   cascadePreview={!!cascadePreviewSlots?.has(index)}
                   onSelectSlot={onSelectSlot}
@@ -107,7 +141,8 @@ export function PassageBody({
                   slotIndex={index}
                   isPlaced={isPlaced}
                   isSelected={index === selectedSlotIndex}
-                  suppressActiveRing={phraseGroupRing}
+                  showFocusRing={phraseGroupRing || index === selectedSlotIndex}
+                  cascadeRevealCharCount={cascadeRevealBySlot?.get(index)}
                   onSlotAnchorRef={onSlotAnchorRef}
                   cascadePreview={!!cascadePreviewSlots?.has(index)}
                   onSelectSlot={onSelectSlot}
@@ -116,10 +151,11 @@ export function PassageBody({
             });
 
             return (
-              <View
-                key={`phrase-${seg.start}`}
-                style={[styles.phraseGroup, phraseGroupRing && styles.phraseGroupRing]}>
+              <View key={`phrase-${seg.start}`} style={styles.phraseGroup}>
                 {cells}
+                {phraseGroupRing ? (
+                  <View pointerEvents="none" style={phraseRingStyle} />
+                ) : null}
               </View>
             );
           })}
@@ -145,20 +181,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'baseline',
+    columnGap: 6,
+  },
+  paragraphBreak: {
+    width: '100%',
+    height: 0,
+    overflow: 'hidden',
   },
   phraseGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'baseline',
-    marginRight: 6,
-  },
-  phraseGroupRing: {
-    padding: 2,
-    marginRight: 4,
-    marginVertical: 1,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: GameChrome.activeRing,
-    backgroundColor: GameChrome.ringOffsetBackground,
+    columnGap: 6,
+    position: 'relative',
+    overflow: 'visible',
   },
 });
